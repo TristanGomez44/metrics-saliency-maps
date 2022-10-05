@@ -81,7 +81,6 @@ def get_ad2():
 #Test a model with a constant score
 def get_add1():
     test_dic = get_ad1()
-    expl = test_dic["expl"]
     def test_add1(x):
         res = torch.ones(1,2)
         return res 
