@@ -83,7 +83,7 @@ class AUC_Metric():
 
             output = model(data[i:i+1])[0,class_to_explain]
 
-            score_list = [output]
+            score_list = [output.detach().item()]
             saliency_score_list = []            
 
             while left_pixel_nb > 0:
@@ -101,8 +101,8 @@ class AUC_Metric():
 
                 left_pixel_nb -= self.pixel_removed_per_step
                 output = model(data[i:i+1])[0,class_to_explain]
-                score_list.append(output.item())
-                saliency_score_list.append(saliency_scores.mean())
+                score_list.append(output.detach().item())
+                saliency_score_list.append(saliency_scores.detach().mean())
 
             all_score_list.append(score_list)
             all_sal_score_list.append(saliency_score_list)
