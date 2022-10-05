@@ -6,7 +6,7 @@ from multi_step_metrics import DAUC,IAUC,DC,IC,blur_data
 def get_dauc1():
     test_dic = {}
     test_dic["data"] = torch.ones(1,3,56,56)
-    test_dic["expl"] = test_dic["data"].clone()
+    test_dic["expl"] = test_dic["data"].clone()[:,0:1]
     test_dic["metrConst"] = DAUC
     def test_model_dauc_1(x):
         res_neg = (x==0).sum(dim=3).sum(dim=2).sum(dim=1,keepdim=True)
@@ -27,7 +27,7 @@ def get_iauc1():
     data_shape = test_dic["data"].shape
     data = torch.rand(size=(data_shape[0],3,data_shape[2],data_shape[3]))
     test_dic["data"] = data
-    test_dic["expl"] = test_dic["data"].clone()
+    test_dic["expl"] = test_dic["data"].clone()[:,0:1]
     data_blur_std_iauc1 = blur_data(data).std().clone()
     data_std_iauc1 = data.std().clone()
     data_ref_iauc1 = data.clone()
@@ -46,7 +46,7 @@ def get_dauc2():
     test_dic = {}
     data = torch.ones(1,3,56,56)
     test_dic["data"] = data.clone()
-    test_dic["expl"]  = test_dic["data"].clone()
+    test_dic["expl"]  = test_dic["data"].clone()[:,0:1]
     test_dic["metrConst"] = DAUC
     torch.manual_seed(2)
     rand_nb = torch.rand(size=(1,)).item()
