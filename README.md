@@ -1,5 +1,9 @@
 # Faithfulness metrics for saliency maps 
 
+
+TODO: explain the role of each script
+
+
 This repository implements the faithfulness metrics mentionned in the paper "Computing and evaluating saliency maps for image classification: a tutorial" in Pytorch.
 This can be used to compute the following metrics: 
 - Deletion Area Under Curve (DAUC)/Insertion Area Under Curve (IAUC) [(Petsiuk et al. 2019)](https://arxiv.org/abs/1806.07421)
@@ -52,3 +56,6 @@ dauc_mean = dauc(model,data,explanations,class_to_explain)
 ## Demonstration
 
 Look at the ```demo.ipynb``` script for a demonstration.
+If you want to re-run the demo, you should download the [model's weights](https://drive.google.com/file/d/1JdHJjvCb9IAtcwKizo_KGLDR73UmtFYY/view?usp=sharing) pretrained on the CUB dataset and put it on the project's root.
+You should also download the [CUB test dataset](http://www.vision.caltech.edu/datasets/cub_200_2011/) and put it in a "data" folder located at the project's root.
+The dataset should be formated as expected by the ```torchvision.datasets.ImageFolder``` class from ```torchvision```.
