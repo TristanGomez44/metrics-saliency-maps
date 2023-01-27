@@ -85,24 +85,19 @@ class AUC_Metric():
 
             score_list = [output.detach().item()]
             saliency_score_list = []            
+            iter_nb = 0
 
             while left_pixel_nb > 0:
-                saliency_scores,ind_max = expl[0,0].view(-1).topk(k=self.pixel_removed_per_step)
-                ind_max = ind_max[:left_pixel_nb]
-                x_max,y_max = ind_max % expl.shape[3],torch.div(ind_max,expl.shape[3],rounding_mode="floor")
-                
-                for j in range(self.pixel_removed_per_step):
-                    x1,y1 = x_max[j]*self.size_ratio,y_max[j]*self.size_ratio,
-                    x2,y2 = x1+self.size_ratio,y1+self.size_ratio
-                    
-                    data = self.update_data(data,i,y1,y2,x1,x2,data_to_replace_with)
 
-                    expl[i:i+1,:,y_max[j],x_max[j]] = -1                       
+                mask,saliency_scores = self.compute_mask(expl,data.shape,self.pixel_removed_per_step*(iter_nb+1))
+                data_masked = data[i:i+1]*mask + data_to_replace_with[i:i+1]*(1-mask)
 
-                left_pixel_nb -= self.pixel_removed_per_step
-                output = model(data[i:i+1])[0,class_to_explain]
+                output = model(data_masked)[0,class_to_explain]
                 score_list.append(output.detach().item())
-                saliency_score_list.append(saliency_scores.detach().mean())
+                saliency_score_list.append(saliency_scores[-self.pixel_removed_per_step:].detach().mean())
+                    
+                iter_nb += 1
+                left_pixel_nb -= self.pixel_removed_per_step
 
             all_score_list.append(score_list)
             all_sal_score_list.append(saliency_score_list)
@@ -112,6 +107,15 @@ class AUC_Metric():
 
         mean = self.compute_metric(all_score_list,all_sal_score_list)
         return mean
+
+    def compute_mask(self,explanation,data_shape,k):
+        mask_flat = torch.ones(data_shape[2]*data_shape[3])
+        saliency_scores,inds = torch.topk(explanation.view(-1),k,0,sorted=True)
+        mask_flat[inds] = 0
+        mask = mask_flat.reshape(1,1,data_shape[2],data_shape[3])
+
+        mask = torch.nn.functional.interpolate(mask,data_shape[2:],mode="nearest")[0]
+        return mask,saliency_scores
 
 class DAUC(AUC_Metric):
     def __init__(self,data_shape,explanation_shape,bound_max_step):
