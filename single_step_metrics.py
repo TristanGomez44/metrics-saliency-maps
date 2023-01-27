@@ -7,11 +7,9 @@ class SingleStepMetric():
 
     def __call__(self,model,data,explanations,class_to_explain):
 
-        explanations = min_max_norm(explanations)
-        explanations = torch.nn.functional.interpolate(explanations,size=(data.shape[-1]),mode="bicubic").to(data.device)                    
-        
-        explanations = self.preprocess_expl(explanations)
-        data_masked = data*explanations
+        masks = self.compute_mask(explanations,data.shape).to(data.device)
+
+        data_masked = data*masks
 
         sample_list = []
         for i in range(len(data)):
@@ -24,6 +22,12 @@ class SingleStepMetric():
 
     def preprocess_expl(self,explanations):
         return explanations
+
+    def compute_mask(self,explanations,data_shape):
+        explanations = min_max_norm(explanations)
+        explanations = torch.nn.functional.interpolate(explanations,size=(data_shape[-1]),mode="bicubic")                       
+        masks = self.preprocess_expl(explanations)
+        return masks
 
     def compute_metric_sample(self,score,score_masked):
         raise NotImplementedError
