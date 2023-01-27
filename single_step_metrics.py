@@ -11,7 +11,6 @@ class SingleStepMetric():
         explanations = torch.nn.functional.interpolate(explanations,size=(data.shape[-1]),mode="bicubic").to(data.device)                    
         
         explanations = self.preprocess_expl(explanations)
-        
         data_masked = data*explanations
 
         sample_list = []
@@ -19,9 +18,9 @@ class SingleStepMetric():
             score = model(data[i:i+1])[0,class_to_explain]
             score_masked = model(data_masked[i:i+1])[0,class_to_explain]            
             sample_list.append(self.compute_metric_sample(score,score_masked))
-        sample_list = torch.cat(sample_list,dim=0).float().mean()
+        mean_value = torch.cat(sample_list,dim=0).float().mean()
 
-        return sample_list
+        return mean_value
 
     def preprocess_expl(self,explanations):
         return explanations
