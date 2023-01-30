@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from multi_step_metrics import DAUC,IAUC,DC,IC,blur_data
+from multi_step_metrics import DAUC,IAUC,DC,IC
 
 #Test a model producing a linearly decreasing score from 1 to 0
 def get_dauc1():
@@ -28,8 +28,6 @@ def get_iauc1():
     data = torch.rand(size=(data_shape[0],3,data_shape[2],data_shape[3]))
     test_dic["data"] = data
     test_dic["expl"] = test_dic["data"].clone()[:,0:1]
-    data_blur_std_iauc1 = blur_data(data).std().clone()
-    data_std_iauc1 = data.std().clone()
     data_ref_iauc1 = data.clone()
     def test_model_iauc_1(x):
         res_neg = (x!=data_ref_iauc1).sum(dim=3).sum(dim=2).sum(dim=1,keepdim=True)

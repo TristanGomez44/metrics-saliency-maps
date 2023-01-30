@@ -27,6 +27,8 @@ def compute_auc_metric(all_score_list):
 
 def blur_data(data):
     kernel_size = max(data.shape[2]//5,9)
+    if kernel_size % 2 == 0:
+        kernel_size += 1
     kernel = torch.ones(kernel_size,kernel_size)
     kernel = kernel/kernel.numel()
     kernel = kernel.unsqueeze(0).unsqueeze(0).expand(3,1,-1,-1)
@@ -90,7 +92,8 @@ class AUC_Metric():
             while left_pixel_nb > 0:
 
                 mask,saliency_scores = self.compute_mask(expl,data.shape,self.pixel_removed_per_step*(iter_nb+1))
-                data_masked = data[i:i+1]*mask + data_to_replace_with[i:i+1]*(1-mask)
+                mask = mask.to(data.device)
+                data_masked = self.apply_mask(data[i:i+1],data_to_replace_with[i:i+1],mask)
 
                 output = model(data_masked)[0,class_to_explain]
                 score_list.append(output.detach().item())
@@ -108,17 +111,20 @@ class AUC_Metric():
         mean = self.compute_metric(all_score_list,all_sal_score_list)
         return mean
 
+    def apply_mask(self,data,data_to_replace_with,mask):
+        data_masked = data*mask + data_to_replace_with*(1-mask)
+        return data_masked
+
     def compute_mask(self,explanation,data_shape,k):
-        mask_flat = torch.ones(data_shape[2]*data_shape[3])
+        mask_flat = torch.ones(explanation.shape[2]*explanation.shape[3]).to(explanation.device)
         saliency_scores,inds = torch.topk(explanation.view(-1),k,0,sorted=True)
         mask_flat[inds] = 0
-        mask = mask_flat.reshape(1,1,data_shape[2],data_shape[3])
-
-        mask = torch.nn.functional.interpolate(mask,data_shape[2:],mode="nearest")[0]
+        mask = mask_flat.reshape(1,1,explanation.shape[2],explanation.shape[3])
+        mask = torch.nn.functional.interpolate(mask,data_shape[2:],mode="nearest")
         return mask,saliency_scores
 
 class DAUC(AUC_Metric):
-    def __init__(self,data_shape,explanation_shape,bound_max_step):
+    def __init__(self,data_shape,explanation_shape,bound_max_step=True):
         super().__init__(data_shape,explanation_shape,bound_max_step)
     
     def init_data_to_replace_with(self,data):
@@ -128,7 +134,7 @@ class DAUC(AUC_Metric):
         return data
 
 class IAUC(AUC_Metric):
-    def __init__(self,data_shape,explanation_shape,bound_max_step):
+    def __init__(self,data_shape,explanation_shape,bound_max_step=True):
         super().__init__(data_shape,explanation_shape,bound_max_step)
     
     def init_data_to_replace_with(self,data):
@@ -138,7 +144,7 @@ class IAUC(AUC_Metric):
         return blur_data(data)
 
 class DC(DAUC):
-    def __init__(self,data_shape,explanation_shape,bound_max_step):
+    def __init__(self,data_shape,explanation_shape,bound_max_step=True):
         super().__init__(data_shape,explanation_shape,bound_max_step)
     
     def compute_metric(self, all_score_list, all_sal_score_list):
@@ -146,7 +152,7 @@ class DC(DAUC):
         return compute_corr_metric(score_var, all_sal_score_list)
 
 class IC(IAUC):
-    def __init__(self,data_shape,explanation_shape,bound_max_step):
+    def __init__(self,data_shape,explanation_shape,bound_max_step=True):
         super().__init__(data_shape,explanation_shape,bound_max_step)
     
     def compute_metric(self, all_score_list, all_sal_score_list):

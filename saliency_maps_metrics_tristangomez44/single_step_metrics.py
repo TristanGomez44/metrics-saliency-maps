@@ -1,7 +1,15 @@
 import numpy as np
 import torch
 import torch.functional as F
-from utils import min_max_norm
+import sys 
+
+def min_max_norm(arr):
+
+    if arr.min() == arr.max():
+        return arr 
+    else:
+        return (arr-arr.min())/(arr.max()-arr.min())
+
 
 class SingleStepMetric():
 
@@ -20,13 +28,16 @@ class SingleStepMetric():
 
         return mean_value
 
-    def preprocess_expl(self,explanations):
-        return explanations
+    def apply_mask(self,data,mask):
+        return data*mask
+
+    def preprocess_mask(self,masks):
+        return masks
 
     def compute_mask(self,explanations,data_shape):
-        explanations = min_max_norm(explanations)
-        explanations = torch.nn.functional.interpolate(explanations,size=(data_shape[-1]),mode="bicubic")                       
-        masks = self.preprocess_expl(explanations)
+        masks = min_max_norm(explanations)
+        masks = torch.nn.functional.interpolate(masks,size=(data_shape[2:]),align_corners=False,mode="bicubic")                       
+        masks = self.preprocess_mask(masks)
         return masks
 
     def compute_metric_sample(self,score,score_masked):
@@ -44,8 +55,8 @@ class AD(SingleStepMetric):
 
 class ADD(SingleStepMetric):
 
-    def preprocess_expl(self,explanations):
-        return 1-explanations
+    def preprocess_mask(self,masks):
+        return 1-masks
 
     def compute_metric_sample(self,score,score_masked):
         return (score-score_masked)/score  
