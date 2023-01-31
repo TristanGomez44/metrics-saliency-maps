@@ -11,6 +11,8 @@ def test_data_aug():
     metric_list = list(metric_dic.keys())
     is_multi_step = {"DAUC":True, "IAUC":True, "AD":False, "ADD":False}
 
+    func_list = ["black","blur","black","blur"]
+
     data = torch.zeros(1,1,224,224)
     x = torch.arange(data.shape[3]).unsqueeze(0)
     y = torch.arange(data.shape[2]).unsqueeze(1)
@@ -35,8 +37,9 @@ def test_data_aug():
     for i in range(len(data)):
         metric_ind = i
         metric_name = metric_list[metric_ind]
+
         if is_multi_step[metric_name]:
-            metric = metric_dic[metric_name](data.shape,expl.shape,True)
+            metric = metric_dic[metric_name](data.shape,expl.shape,func_list[i],True)
 
             data_to_replace_with_i = metric.init_data_to_replace_with(data[i:i+1])
             data_i = metric.preprocess_data(data[i:i+1]) 
@@ -48,9 +51,11 @@ def test_data_aug():
        
             data_masked = metric.apply_mask(data_i,data_to_replace_with_i,mask)
         else:
-            metric = metric_dic[metric_name]()
+            metric = metric_dic[metric_name](func_list[i])
             mask = metric.compute_mask(expl[i:i+1],data.shape)
-            data_masked = metric.apply_mask(data[i:i+1],mask)
+
+            data_to_replace_with = metric.init_data_to_replace_with(data[i:i+1])
+            data_masked = metric.apply_mask(data[i:i+1],data_to_replace_with,mask)
 
         data_masked_list.append(data_masked)
     

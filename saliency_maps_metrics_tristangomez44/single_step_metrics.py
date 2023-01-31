@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import torch.functional as F
 import sys 
+from data_transf import select_data_transf
 
 def min_max_norm(arr):
 
@@ -10,26 +11,14 @@ def min_max_norm(arr):
     else:
         return (arr-arr.min())/(arr.max()-arr.min())
 
-
 class SingleStepMetric():
 
-    def __call__(self,model,data,explanations,class_to_explain):
+    def __init__(self,data_transf_str="black") -> None:
+        
+        self.data_transf_func = select_data_transf(data_transf_str)
 
-        masks = self.compute_mask(explanations,data.shape).to(data.device)
-
-        data_masked = data*masks
-
-        sample_list = []
-        for i in range(len(data)):
-            score = model(data[i:i+1])[0,class_to_explain]
-            score_masked = model(data_masked[i:i+1])[0,class_to_explain]            
-            sample_list.append(self.compute_metric_sample(score,score_masked))
-        mean_value = torch.cat(sample_list,dim=0).float().mean()
-
-        return mean_value
-
-    def apply_mask(self,data,mask):
-        return data*mask
+    def init_data_to_replace_with(self,data):
+        return self.data_transf_func(data)
 
     def preprocess_mask(self,masks):
         return masks
@@ -39,6 +28,25 @@ class SingleStepMetric():
         masks = torch.nn.functional.interpolate(masks,size=(data_shape[2:]),align_corners=False,mode="bicubic")                       
         masks = self.preprocess_mask(masks)
         return masks
+
+    def apply_mask(self,data,data_to_replace_with,mask):
+        data_masked = data*mask + data_to_replace_with*(1-mask)
+        return data_masked
+
+    def __call__(self,model,data,explanations,class_to_explain):
+
+        masks = self.compute_mask(explanations,data.shape).to(data.device)
+        data_to_replace_with = self.init_data_to_replace_with(data)
+        data_masked = self.apply_mask(data,data_to_replace_with,masks)
+
+        sample_list = []
+        for i in range(len(data)):
+            score = model(data[i:i+1])[0,class_to_explain]
+            score_masked = model(data_masked[i:i+1])[0,class_to_explain]            
+            sample_list.append(self.compute_metric_sample(score,score_masked))
+        mean_value = torch.cat(sample_list,dim=0).float().mean()
+
+        return mean_value
 
     def compute_metric_sample(self,score,score_masked):
         raise NotImplementedError

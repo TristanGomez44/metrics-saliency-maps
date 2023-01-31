@@ -181,7 +181,7 @@ if __name__ == "__main__":
     for test in test_to_do:
         torch.manual_seed(0)
         dic = all_test_dic[test]
-        metric = dic["metrConst"](dic["data"].shape,dic["expl"].shape,True)
+        metric = dic["metrConst"](dic["data"].shape,dic["expl"].shape)
         mean = metric(dic["model"],dic["data"].clone(),dic["expl"].clone(),dic["class_to_explain"])
         sucess = np.abs(mean - dic["target"]) < 0.01
         print(f"Test: {test}, Result:{mean}, Target:{dic['target']}, Sucess:{sucess}")
