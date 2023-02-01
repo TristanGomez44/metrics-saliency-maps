@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.functional as F
 import sys 
-from data_transf import select_data_transf
+from .data_transf import select_data_transf
 
 def min_max_norm(arr):
 

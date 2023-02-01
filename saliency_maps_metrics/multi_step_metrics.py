@@ -2,7 +2,7 @@ import sys
 import numpy as np
 import torch
 
-from data_transf import select_data_transf
+from .data_transf import select_data_transf
 
 def compute_correlation(score_var, all_sal_score_list):
     corr_list = []
