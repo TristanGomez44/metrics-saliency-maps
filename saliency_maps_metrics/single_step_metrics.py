@@ -33,8 +33,7 @@ class SingleStepMetric():
         data_masked = data*mask + data_to_replace_with*(1-mask)
         return data_masked
 
-    def __call__(self,model,data,explanations,class_to_explain):
-
+    def compute_scores(self,model,data,explanations,class_to_explain_list):
         masks = self.compute_mask(explanations,data.shape).to(data.device)
         data_to_replace_with = self.init_data_to_replace_with(data)
         data_masked = self.apply_mask(data,data_to_replace_with,masks)
@@ -42,14 +41,23 @@ class SingleStepMetric():
         score_list = []
         score_masked_list = []
         for i in range(len(data)):
+            if class_to_explain_list is None:
+                class_to_explain = torch.argmax(model(data[i:i+1]),axis=1)[0]
+            else:
+                class_to_explain = class_to_explain_list[i]
+        
             score = model(data[i:i+1])[0,class_to_explain]
-            score_masked = model(data_masked[i:i+1])[0,class_to_explain]            
+            score_masked = model(data_masked[i:i+1])[0,class_to_explain].item()          
             score_list.append(score)
             score_masked_list.append(score_masked)
 
-        score_list = np.array(score_list)
-        score_masked_list = np.array(score_masked_list)
+        score_list = torch.tensor(score_list)
+        score_masked_list = torch.tensor(score_masked_list)
 
+        return score_list,score_masked_list
+
+    def __call__(self,model,data,explanations,class_to_explain_list):
+        score_list,score_masked_list = self.compute_scores(model,data,explanations,class_to_explain_list)
         return self.compute_metric(score_list,score_masked_list)
 
     def compute_metric(self,score,score_masked):
@@ -58,7 +66,7 @@ class SingleStepMetric():
 class IIC_AD(SingleStepMetric):
 
     def compute_metric(self,score,score_masked):
-        return {"iic":(score_masked > score).mean(),"ad":(torch.clamp(score-score_masked,min=0)/score).mean()}
+        return {"iic":(score_masked > score).float().mean(),"ad":(torch.clamp(score-score_masked,min=0)/score).mean()}
 
 class ADD(SingleStepMetric):
 

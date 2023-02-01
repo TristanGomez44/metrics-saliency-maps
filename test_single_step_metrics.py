@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from single_step_metrics import IIC_AD,ADD
+from saliency_maps_metrics.single_step_metrics import IIC_AD,ADD
 
 #Test a model producing a score that increases when the image is masked
 def get_iic1():
@@ -97,6 +97,7 @@ def get_add2():
     expl = test_dic["expl"]
     expl[:,:,0,0] = 1
     test_dic["metrConst"] = ADD
+    test_dic["metric_name"] = "add"
     return test_dic 
 
 if __name__ == "__main__":
@@ -115,6 +116,6 @@ if __name__ == "__main__":
         torch.manual_seed(0)
         dic = all_test_dic[test]
         metric = dic["metrConst"]()
-        mean = metric(dic["model"],dic["data"].clone(),dic["expl"].clone(),dic["class_to_explain"])
+        mean = metric(dic["model"],dic["data"].clone(),dic["expl"].clone(),dic["class_to_explain"])[dic["metric_name"]]
         sucess = np.abs(mean - dic["target"]) < 0.01
         print(f"Test: {test}, Result:{mean}, Target:{dic['target']}, Sucess:{sucess}")

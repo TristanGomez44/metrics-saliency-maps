@@ -2,14 +2,14 @@ import sys
 import torch
 import torchvision 
 
-from multi_step_metrics import DAUC, IAUC
-from single_step_metrics import AD, ADD
+from saliency_maps_metrics.multi_step_metrics import Deletion, Insertion
+from saliency_maps_metrics.single_step_metrics import IIC_AD, ADD
 
 def test_data_aug():
 
-    metric_dic = {"DAUC":DAUC, "IAUC":IAUC, "AD":AD, "ADD":ADD}
+    metric_dic = {"Deletion":Deletion, "Insertion":Insertion, "AD":IIC_AD, "ADD":ADD}
     metric_list = list(metric_dic.keys())
-    is_multi_step = {"DAUC":True, "IAUC":True, "AD":False, "ADD":False}
+    is_multi_step = {"Deletion":True, "Insertion":True, "AD":False, "ADD":False}
 
     func_list = ["black","blur","black","blur"]
 
@@ -60,7 +60,7 @@ def test_data_aug():
         data_masked_list.append(data_masked)
     
     data_masked_list = torch.cat(data_masked_list,dim=0)
-    torchvision.utils.save_image(data_masked_list,"../data_aug_test.png")
+    torchvision.utils.save_image(data_masked_list,"data_aug_test.png")
 
 if __name__ == "__main__":
     test_data_aug()

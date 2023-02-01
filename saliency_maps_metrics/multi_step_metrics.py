@@ -26,7 +26,7 @@ def compute_auc_metric(all_score_list):
     auc_mean = np.array(auc_list).mean()
     return auc_mean
 
-class AUC_Metric():
+class MultiStepMetric():
 
     def __init__(self,data_shape,explanation_shape,data_transf_str,bound_max_step=True):
 
@@ -72,8 +72,7 @@ class AUC_Metric():
     def make_result_dic(self,auc_metric,calibration_metric):
         raise NotImplementedError
 
-    def __call__(self,model,data,explanations,class_to_explain_list=None):
-
+    def compute_scores(self,model,data,explanations,class_to_explain_list=None):
         data_to_replace_with = self.init_data_to_replace_with(data)
         data = self.preprocess_data(data)        
 
@@ -115,12 +114,16 @@ class AUC_Metric():
         all_score_list = np.array(all_score_list)
         all_sal_score_list = np.array(all_sal_score_list)
 
+        return all_score_list,all_sal_score_list
+
+    def __call__(self,model,data,explanations,class_to_explain_list=None):
+        all_score_list,all_sal_score_list = self.compute_scores(model,data,explanations,class_to_explain_list)
         mean_auc_metric = compute_auc_metric(all_score_list)
         mean_calibration_metric = self.compute_calibration_metric(all_score_list, all_sal_score_list)
 
         return self.make_result_dic(mean_auc_metric,mean_calibration_metric)
 
-class DAUC(AUC_Metric):
+class Deletion(MultiStepMetric):
     def __init__(self,data_shape,explanation_shape,data_transf_str="black",bound_max_step=True):
         super().__init__(data_shape,explanation_shape,data_transf_str,bound_max_step)
     
@@ -137,7 +140,7 @@ class DAUC(AUC_Metric):
     def make_result_dic(self,auc_metric,calibration_metric):
         return {"dauc":auc_metric,"dc":calibration_metric}
         
-class IAUC(AUC_Metric):
+class Insertion(MultiStepMetric):
     def __init__(self,data_shape,explanation_shape,data_transf_str="blur",bound_max_step=True):
         super().__init__(data_shape,explanation_shape,data_transf_str,bound_max_step)
     
