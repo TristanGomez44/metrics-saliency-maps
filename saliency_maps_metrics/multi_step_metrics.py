@@ -114,8 +114,8 @@ class MultiStepMetric():
             all_score_list.append(score_list)
             all_sal_score_list.append(saliency_score_list)
 
-        all_score_list = np.array(all_score_list)
-        all_sal_score_list = np.array(all_sal_score_list)
+        all_score_list = torch.tensor(all_score_list)
+        all_sal_score_list = torch.tensor(all_sal_score_list)
 
         return all_score_list,all_sal_score_list
 

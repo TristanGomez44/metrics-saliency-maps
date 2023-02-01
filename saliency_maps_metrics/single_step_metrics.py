@@ -47,7 +47,7 @@ class SingleStepMetric():
             else:
                 class_to_explain = class_to_explain_list[i]
         
-            score = model(data[i:i+1])[0,class_to_explain]
+            score = model(data[i:i+1])[0,class_to_explain].item()  
             score_masked = model(data_masked[i:i+1])[0,class_to_explain].item()          
             score_list.append(score)
             score_masked_list.append(score_masked)
