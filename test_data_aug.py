@@ -9,15 +9,16 @@ def test_data_aug():
 
     metric_dic = {"Deletion":Deletion, "Insertion":Insertion, "AD":IIC_AD, "ADD":ADD}
     metric_list = list(metric_dic.keys())
+    metric_list = metric_list *  2
     is_multi_step = {"Deletion":True, "Insertion":True, "AD":False, "ADD":False}
 
-    func_list = ["black","blur","black","blur"]
+    func_list = ["black","blur","black","blur","black","blur","black","blur"]
 
     data = torch.zeros(1,1,224,224)
     x = torch.arange(data.shape[3]).unsqueeze(0)
     y = torch.arange(data.shape[2]).unsqueeze(1)
     data = (x % 2==0)*(y%2==0)
-    data = data.expand(4,3,-1,-1).float()
+    data = data.expand(len(metric_list),3,-1,-1).float()
 
     patch_res = 14
 
@@ -34,28 +35,37 @@ def test_data_aug():
 
     data_masked_list = []
 
-    for i in range(len(data)):
+    for i in range(len(metric_list)):
+
         metric_ind = i
         metric_name = metric_list[metric_ind]
 
-        if is_multi_step[metric_name]:
-            metric = metric_dic[metric_name](func_list[i])
+        data_i = data[i:i+1]
+        expl_i = expl[i:i+1]
 
-            data_to_replace_with_i = metric.init_data_to_replace_with(data[i:i+1])
-            data_i = metric.preprocess_data(data[i:i+1]) 
-            expl_i = expl[i:i+1]
+        metric = metric_dic[metric_name](func_list[i])
+
+        if i >= len(metric_list)//2:
+            masking_data_i = torch.zeros_like(data_i)
+            masking_data_i[:,0] = 1
+        else:
+            masking_data_i = metric.get_masking_data(data_i)
+
+        if is_multi_step[metric_name]:
+         
+            dic = metric.choose_data_order(data_i,masking_data_i)
+            data1_i,data2_i = dic["data1"],dic["data2"]
 
             k = expl.shape[2]*expl.shape[3]//4
        
             mask,_ = metric.compute_mask(expl_i,data.shape,k)
        
-            data_masked = metric.apply_mask(data_i,data_to_replace_with_i,mask)
-        else:
-            metric = metric_dic[metric_name](func_list[i])
-            mask = metric.compute_mask(expl[i:i+1],data.shape)
+            data_masked = metric.apply_mask(data1_i,data2_i,mask)
 
-            data_to_replace_with = metric.init_data_to_replace_with(data[i:i+1])
-            data_masked = metric.apply_mask(data[i:i+1],data_to_replace_with,mask)
+        else:
+            mask = metric.compute_mask(expl_i,data.shape)
+
+            data_masked = metric.apply_mask(data_i,masking_data_i,mask)
 
         data_masked_list.append(data_masked)
     

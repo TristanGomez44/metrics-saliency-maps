@@ -17,7 +17,7 @@ class SingleStepMetric():
         
         self.data_replace_func = select_data_replace_method(data_replace_method)
 
-    def init_data_to_replace_with(self,data):
+    def get_masking_data(self,data):
         return self.data_replace_func(data)
 
     def preprocess_mask(self,masks):
@@ -33,9 +33,10 @@ class SingleStepMetric():
         data_masked = data*mask + data_to_replace_with*(1-mask)
         return data_masked
 
-    def compute_scores(self,model,data,explanations,class_to_explain_list=None):
+    def compute_scores(self,model,data,explanations,class_to_explain_list=None,data_to_replace_with=None):
         masks = self.compute_mask(explanations,data.shape).to(data.device)
-        data_to_replace_with = self.init_data_to_replace_with(data)
+        if data_to_replace_with is None:
+            data_to_replace_with = self.get_masking_data(data)
         data_masked = self.apply_mask(data,data_to_replace_with,masks)
 
         score_list = []
@@ -56,8 +57,8 @@ class SingleStepMetric():
 
         return score_list,score_masked_list
 
-    def __call__(self,model,data,explanations,class_to_explain_list):
-        score_list,score_masked_list = self.compute_scores(model,data,explanations,class_to_explain_list)
+    def __call__(self,model,data,explanations,class_to_explain_list,data_to_replace_with=None):
+        score_list,score_masked_list = self.compute_scores(model,data,explanations,class_to_explain_list,data_to_replace_with)
         return self.compute_metric(score_list,score_masked_list)
 
     def compute_metric(self,score,score_masked):

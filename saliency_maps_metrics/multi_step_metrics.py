@@ -39,10 +39,10 @@ class MultiStepMetric():
 
         self.data_replace_func = select_data_replace_method(data_replace_method)
 
-    def init_data_to_replace_with(data):
-        raise NotImplementedError
+    def get_masking_data(self,data):
+        return self.data_replace_func(data)
 
-    def preprocess_data(data):
+    def choose_data_order(self,data,masking_data):
         raise NotImplementedError
 
     def compute_mask(self,explanation,data_shape,k):
@@ -53,12 +53,12 @@ class MultiStepMetric():
         mask = torch.nn.functional.interpolate(mask,data_shape[2:],mode="nearest")
         return mask,saliency_scores
 
-    def apply_mask(self,data,data_to_replace_with,mask):
-        data_masked = data*mask + data_to_replace_with*(1-mask)
+    def apply_mask(self,data1,data2,mask):
+        data_masked = data1*mask + data2*(1-mask)
         return data_masked
 
-    def update_data(self,data, i, y1, y2, x1, x2,data_to_replace_with):
-        data[i:i+1,:,y1:y2,x1:x2] = data_to_replace_with[i:i+1,:,y1:y2,x1:x2]
+    def update_data(self,data, i, y1, y2, x1, x2,masking_data):
+        data[i:i+1,:,y1:y2,x1:x2] = masking_data[i:i+1,:,y1:y2,x1:x2]
         return data
 
     def compute_calibration_metric(all_score_list, all_sal_score_list):
@@ -67,29 +67,32 @@ class MultiStepMetric():
     def make_result_dic(self,auc_metric,calibration_metric):
         raise NotImplementedError
 
-    def compute_scores(self,model,data,explanations,class_to_explain_list=None):
+    def compute_scores(self,model,data,explanations,class_to_explain_list=None,masking_data=None):
         
         total_pixel_nb = explanations.shape[2]*explanations.shape[3]
         step_nb = min(14*14,total_pixel_nb) if self.bound_max_step else total_pixel_nb
         pixel_removed_per_step = total_pixel_nb//step_nb
 
-        data_to_replace_with = self.init_data_to_replace_with(data)
-        data = self.preprocess_data(data)        
+        if masking_data is None:
+            masking_data = self.get_masking_data(data)
+       
+        dic = self.choose_data_order(data,masking_data)
+        data1,data2 = dic["data1"],dic["data2"]
 
         all_score_list = []
         all_sal_score_list = []
 
-        for i in range(len(data)):
+        for i in range(len(data1)):
             
             if class_to_explain_list is None:
-                class_to_explain = torch.argmax(model(data[i:i+1]),axis=1)[0]
+                class_to_explain = torch.argmax(model(data1[i:i+1]),axis=1)[0]
             else:
                 class_to_explain = class_to_explain_list[i]
         
             expl = explanations[i:i+1]
             left_pixel_nb = total_pixel_nb
 
-            output = model(data[i:i+1])[0,class_to_explain]
+            output = model(data1[i:i+1])[0,class_to_explain]
 
             score_list = [output.detach().item()]
             saliency_score_list = []            
@@ -97,9 +100,9 @@ class MultiStepMetric():
 
             while left_pixel_nb > 0:
 
-                mask,saliency_scores = self.compute_mask(expl,data.shape,pixel_removed_per_step*(iter_nb+1))
-                mask = mask.to(data.device)
-                data_masked = self.apply_mask(data[i:i+1],data_to_replace_with[i:i+1],mask)
+                mask,saliency_scores = self.compute_mask(expl,data1.shape,pixel_removed_per_step*(iter_nb+1))
+                mask = mask.to(data1.device)
+                data_masked = self.apply_mask(data1[i:i+1],data2[i:i+1],mask)
 
                 output = model(data_masked)[0,class_to_explain]
                 score_list.append(output.detach().item())
@@ -116,8 +119,8 @@ class MultiStepMetric():
 
         return all_score_list,all_sal_score_list
 
-    def __call__(self,model,data,explanations,class_to_explain_list=None):
-        all_score_list,all_sal_score_list = self.compute_scores(model,data,explanations,class_to_explain_list)
+    def __call__(self,model,data,explanations,class_to_explain_list=None,masking_data=None):
+        all_score_list,all_sal_score_list = self.compute_scores(model,data,explanations,class_to_explain_list,masking_data)
         mean_auc_metric = compute_auc_metric(all_score_list)
         mean_calibration_metric = self.compute_calibration_metric(all_score_list, all_sal_score_list)
 
@@ -126,12 +129,9 @@ class MultiStepMetric():
 class Deletion(MultiStepMetric):
     def __init__(self,data_replace_method="black",bound_max_step=True):
         super().__init__(data_replace_method,bound_max_step)
-    
-    def init_data_to_replace_with(self,data):
-        return self.data_replace_func(data)
 
-    def preprocess_data(self,data):
-        return data
+    def choose_data_order(self,data,masking_data):
+        return {"data1":data,"data2":masking_data}
 
     def compute_calibration_metric(self, all_score_list, all_sal_score_list):
         score_var = all_score_list[:,:-1] - all_score_list[:,1:] 
@@ -140,15 +140,13 @@ class Deletion(MultiStepMetric):
     def make_result_dic(self,auc_metric,calibration_metric):
         return {"dauc":auc_metric,"dc":calibration_metric}
         
+    
 class Insertion(MultiStepMetric):
     def __init__(self,data_replace_method="blur",bound_max_step=True):
         super().__init__(data_replace_method,bound_max_step)
-    
-    def init_data_to_replace_with(self,data):
-        return data
 
-    def preprocess_data(self,data):
-        return self.data_replace_func(data)
+    def choose_data_order(self,data,masking_data):
+        return {"data1":masking_data,"data2":data}
 
     def compute_calibration_metric(self, all_score_list, all_sal_score_list):
         score_var = all_score_list[:,1:] - all_score_list[:,:-1]
