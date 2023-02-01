@@ -28,7 +28,7 @@ def compute_auc_metric(all_score_list):
 
 class MultiStepMetric():
 
-    def __init__(self,data_shape,explanation_shape,data_replace_method,bound_max_step=True):
+    def __init__(self,data_replace_method,bound_max_step=True):
 
         #Set this to true to limit the maximum number of inferences computed by the metric
         #The DAUC/IAUC protocol requires one inference per pixel of the explanation map.
@@ -36,11 +36,6 @@ class MultiStepMetric():
         #In the case of a high-resolution map (>14x14), setting this arg to True results 
         #in one inference for every few pixels removed, instead of one inference per pixel.
         self.bound_max_step = bound_max_step 
-
-        self.size_ratio = data_shape[3]//explanation_shape[3]
-        self.total_pixel_nb = explanation_shape[2]*explanation_shape[3]
-        self.step_nb = min(14*14,self.total_pixel_nb) if self.bound_max_step else self.total_pixel_nb
-        self.pixel_removed_per_step = self.total_pixel_nb//self.step_nb
 
         self.data_replace_func = select_data_replace_method(data_replace_method)
 
@@ -73,6 +68,11 @@ class MultiStepMetric():
         raise NotImplementedError
 
     def compute_scores(self,model,data,explanations,class_to_explain_list=None):
+        
+        total_pixel_nb = explanations.shape[2]*explanations.shape[3]
+        step_nb = min(14*14,total_pixel_nb) if self.bound_max_step else total_pixel_nb
+        pixel_removed_per_step = total_pixel_nb//step_nb
+
         data_to_replace_with = self.init_data_to_replace_with(data)
         data = self.preprocess_data(data)        
 
@@ -87,7 +87,7 @@ class MultiStepMetric():
                 class_to_explain = class_to_explain_list[i]
         
             expl = explanations[i:i+1]
-            left_pixel_nb = self.total_pixel_nb
+            left_pixel_nb = total_pixel_nb
 
             output = model(data[i:i+1])[0,class_to_explain]
 
@@ -97,16 +97,16 @@ class MultiStepMetric():
 
             while left_pixel_nb > 0:
 
-                mask,saliency_scores = self.compute_mask(expl,data.shape,self.pixel_removed_per_step*(iter_nb+1))
+                mask,saliency_scores = self.compute_mask(expl,data.shape,pixel_removed_per_step*(iter_nb+1))
                 mask = mask.to(data.device)
                 data_masked = self.apply_mask(data[i:i+1],data_to_replace_with[i:i+1],mask)
 
                 output = model(data_masked)[0,class_to_explain]
                 score_list.append(output.detach().item())
-                saliency_score_list.append(saliency_scores[-self.pixel_removed_per_step:].detach().mean())
+                saliency_score_list.append(saliency_scores[-pixel_removed_per_step:].detach().mean())
                     
                 iter_nb += 1
-                left_pixel_nb -= self.pixel_removed_per_step
+                left_pixel_nb -= pixel_removed_per_step
 
             all_score_list.append(score_list)
             all_sal_score_list.append(saliency_score_list)
@@ -124,8 +124,8 @@ class MultiStepMetric():
         return self.make_result_dic(mean_auc_metric,mean_calibration_metric)
 
 class Deletion(MultiStepMetric):
-    def __init__(self,data_shape,explanation_shape,data_replace_method="black",bound_max_step=True):
-        super().__init__(data_shape,explanation_shape,data_replace_method,bound_max_step)
+    def __init__(self,data_replace_method="black",bound_max_step=True):
+        super().__init__(data_replace_method,bound_max_step)
     
     def init_data_to_replace_with(self,data):
         return self.data_replace_func(data)
@@ -141,8 +141,8 @@ class Deletion(MultiStepMetric):
         return {"dauc":auc_metric,"dc":calibration_metric}
         
 class Insertion(MultiStepMetric):
-    def __init__(self,data_shape,explanation_shape,data_replace_method="blur",bound_max_step=True):
-        super().__init__(data_shape,explanation_shape,data_replace_method,bound_max_step)
+    def __init__(self,data_replace_method="blur",bound_max_step=True):
+        super().__init__(data_replace_method,bound_max_step)
     
     def init_data_to_replace_with(self,data):
         return data

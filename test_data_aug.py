@@ -39,7 +39,7 @@ def test_data_aug():
         metric_name = metric_list[metric_ind]
 
         if is_multi_step[metric_name]:
-            metric = metric_dic[metric_name](data.shape,expl.shape,func_list[i],True)
+            metric = metric_dic[metric_name](func_list[i])
 
             data_to_replace_with_i = metric.init_data_to_replace_with(data[i:i+1])
             data_i = metric.preprocess_data(data[i:i+1]) 
