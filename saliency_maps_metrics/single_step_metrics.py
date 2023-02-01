@@ -33,7 +33,7 @@ class SingleStepMetric():
         data_masked = data*mask + data_to_replace_with*(1-mask)
         return data_masked
 
-    def compute_scores(self,model,data,explanations,class_to_explain_list):
+    def compute_scores(self,model,data,explanations,class_to_explain_list=None):
         masks = self.compute_mask(explanations,data.shape).to(data.device)
         data_to_replace_with = self.init_data_to_replace_with(data)
         data_masked = self.apply_mask(data,data_to_replace_with,masks)
