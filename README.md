@@ -15,17 +15,21 @@ This can be used to compute the following metrics:
 
 ## Single step metrics
 
-This section covers the use of the IIC, AD and ADD metrics.
-First, generate the saliency map of the image:
+This section covers the use of the Increase In Confidence (IIC), Average Drop (AD) and Average Drop in Deletion (ADD) metrics.
+First, generate the saliency map of the image however you want. The only constraint is that the map should be a tensor of size (Nx1xH'xW'):
 ```
 saliency_map = gradcam.attribute(img,class_ind)
 ```
-Then, compute the metric:
+Then, compute the metric. In this example, we use the class IIC_AD of this library to compute both the AD and IIC metric, as they require similar computations:
 
 ```
-iic = IIC()
-iic_mean = iic(model,data,explanations,class_to_explain)
+iic_ad = IIC_AD()
+metric_dict = iic_ad(model,data,explanations,class_to_explain)
+mean_iic = metric_dict["iic"]
+mean_ad = metric_dict["ad"]
 ```
+
+The resulting dictionary has two entries ```ic``` and ```ad``` which correspond to the mean value of the two metrics.
 
 The ```__call__()``` method for all the metrics requires the following arguments :
 - ```model```: a ```torch.nn.Module``` that outputs a score tensor of shape (NxC), on which a softmax activation has been applied.
@@ -33,7 +37,13 @@ The ```__call__()``` method for all the metrics requires the following arguments
 - ```explanations```: the saliency maps tensor of shape (Nx1xH'xW')
 - ```class_to_explain```: The index of the class to explain for each input image. The shape shoud be (N).
 
-The value returned by this method is simply the average value of the metric over all the images.
+The ADD class is used similarly:
+```
+add = ADD()
+metric_dict = add(model,data,explanations,class_to_explain)
+mean = metric_dict["add"]
+```
+This resulting dictionary has only one entry ```add``` which correspond to the mean value of the ADD metric.
 
 ## Multi-step metrics 
 
@@ -41,17 +51,40 @@ This section covers the use of the DAUC, IAUC, DC and IC metrics.
 These metrics work similarly but some argument have to be passed to the constructor:
 
 ```
-dauc = DAUC(data_shape,explanation_shape,bound_max_step=True)
+deletion = Deletion(data_shape,explanation_shape,bound_max_step=True)
 ```
 Where ```data_shape``` and ```explanation_shape``` are the shape of the image and saliency map tensor.
 A high resolution saliency map of size 56x56 would require approximately 3k inferences.
 To prevent too much computation, you can set the ```bound_max_step``` argument to True to limits the amount of computation that can be computed.
 More precisly, this argument forces to mask/reveal several pixels before computing a new inference if the resolution of the saliency map is superior to 14x14.
-The metric is then computed the same way as the single step metrics:
+The call method returns a dictionary with two entries: ```dauc``` (which correspond to the original Deletion metric by Petsiuk et al.) and ```dc``` (the variant proposed by Gomez et al.).
 
 ```
-dauc_mean = dauc(model,data,explanations,class_to_explain)
+result_dic = deletion(model,data,explanations,class_to_explain)
+dauc = result_dic["dauc"]
+dc = result_dic["dc"]
 ```
+The Insertion metric is computed similarly:
+
+```
+insertion = Insertion(data_shape,explanation_shape,bound_max_step=True)
+result_dic = insertion(model,data,explanations,class_to_explain)
+iauc = result_dic["iauc"]
+ic = result_dic["ic"]
+```
+
+## Changing the filling method
+
+These metrics work by removing parts of the image and replacing it with something else, for e.g. black pixels (Deletion, AD, IIC, ADD) or a blurred version of the input image (Insertion).
+The default replacing method can be changed with the ```data_replace_method``` argument passed to the constructor:
+
+```
+insertion = Insertion(data_shape,explanation_shape,bound_max_step=True,data_replace_method="black")
+add = ADD(data_replace_method="blur")
+```
+Currently, the autorized values are:
+- "black": replaces with black pixels
+- "blur": replaces with a blurred version of the input image
 
 ## Demonstration
 

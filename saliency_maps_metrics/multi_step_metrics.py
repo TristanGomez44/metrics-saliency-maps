@@ -2,7 +2,7 @@ import sys
 import numpy as np
 import torch
 
-from .data_transf import select_data_transf
+from .data_replace import select_data_replace_method
 
 def compute_correlation(score_var, all_sal_score_list):
     corr_list = []
@@ -28,7 +28,7 @@ def compute_auc_metric(all_score_list):
 
 class MultiStepMetric():
 
-    def __init__(self,data_shape,explanation_shape,data_transf_str,bound_max_step=True):
+    def __init__(self,data_shape,explanation_shape,data_replace_method,bound_max_step=True):
 
         #Set this to true to limit the maximum number of inferences computed by the metric
         #The DAUC/IAUC protocol requires one inference per pixel of the explanation map.
@@ -42,7 +42,7 @@ class MultiStepMetric():
         self.step_nb = min(14*14,self.total_pixel_nb) if self.bound_max_step else self.total_pixel_nb
         self.pixel_removed_per_step = self.total_pixel_nb//self.step_nb
 
-        self.data_transf_func = select_data_transf(data_transf_str)
+        self.data_replace_func = select_data_replace_method(data_replace_method)
 
     def init_data_to_replace_with(data):
         raise NotImplementedError
@@ -124,11 +124,11 @@ class MultiStepMetric():
         return self.make_result_dic(mean_auc_metric,mean_calibration_metric)
 
 class Deletion(MultiStepMetric):
-    def __init__(self,data_shape,explanation_shape,data_transf_str="black",bound_max_step=True):
-        super().__init__(data_shape,explanation_shape,data_transf_str,bound_max_step)
+    def __init__(self,data_shape,explanation_shape,data_replace_method="black",bound_max_step=True):
+        super().__init__(data_shape,explanation_shape,data_replace_method,bound_max_step)
     
     def init_data_to_replace_with(self,data):
-        return self.data_transf_func(data)
+        return self.data_replace_func(data)
 
     def preprocess_data(self,data):
         return data
@@ -141,14 +141,14 @@ class Deletion(MultiStepMetric):
         return {"dauc":auc_metric,"dc":calibration_metric}
         
 class Insertion(MultiStepMetric):
-    def __init__(self,data_shape,explanation_shape,data_transf_str="blur",bound_max_step=True):
-        super().__init__(data_shape,explanation_shape,data_transf_str,bound_max_step)
+    def __init__(self,data_shape,explanation_shape,data_replace_method="blur",bound_max_step=True):
+        super().__init__(data_shape,explanation_shape,data_replace_method,bound_max_step)
     
     def init_data_to_replace_with(self,data):
         return data
 
     def preprocess_data(self,data):
-        return self.data_transf_func(data)
+        return self.data_replace_func(data)
 
     def compute_calibration_metric(self, all_score_list, all_sal_score_list):
         score_var = all_score_list[:,1:] - all_score_list[:,:-1]

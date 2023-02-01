@@ -17,10 +17,10 @@ def blur_data(data):
 
 func_dic = {"black":lambda x:constant_val(x,0),"blur":blur_data}
 
-def select_data_transf(transf_str):
-    if transf_str in func_dic:
-        transf = func_dic[transf_str]
+def select_data_replace_method(replace_method):
+    if replace_method in func_dic:
+        replace_method_func = func_dic[replace_method]
     else:
-        raise ValueError("Unkown data transformation",transf_str)
-    return transf
+        raise ValueError("Unkown data replacement function",replace_method)
+    return replace_method_func
 

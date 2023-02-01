@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.functional as F
 import sys 
-from .data_transf import select_data_transf
+from .data_replace import select_data_replace_method
 
 def min_max_norm(arr):
 
@@ -13,12 +13,12 @@ def min_max_norm(arr):
 
 class SingleStepMetric():
 
-    def __init__(self,data_transf_str="black") -> None:
+    def __init__(self,data_replace_method="black") -> None:
         
-        self.data_transf_func = select_data_transf(data_transf_str)
+        self.data_replace_func = select_data_replace_method(data_replace_method)
 
     def init_data_to_replace_with(self,data):
-        return self.data_transf_func(data)
+        return self.data_replace_func(data)
 
     def preprocess_mask(self,masks):
         return masks
