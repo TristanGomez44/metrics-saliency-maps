@@ -39,32 +39,31 @@ class SingleStepMetric():
         data_to_replace_with = self.init_data_to_replace_with(data)
         data_masked = self.apply_mask(data,data_to_replace_with,masks)
 
-        sample_list = []
+        score_list = []
+        score_masked_list = []
         for i in range(len(data)):
             score = model(data[i:i+1])[0,class_to_explain]
             score_masked = model(data_masked[i:i+1])[0,class_to_explain]            
-            sample_list.append(self.compute_metric_sample(score,score_masked))
-        mean_value = torch.cat(sample_list,dim=0).float().mean()
+            score_list.append(score)
+            score_masked_list.append(score_masked)
 
-        return mean_value
+        score_list = np.array(score_list)
+        score_masked_list = np.array(score_masked_list)
 
-    def compute_metric_sample(self,score,score_masked):
+        return self.compute_metric(score_list,score_masked_list)
+
+    def compute_metric(self,score,score_masked):
         raise NotImplementedError
 
-class IIC(SingleStepMetric):
+class IIC_AD(SingleStepMetric):
 
-    def compute_metric_sample(self,score,score_masked):
-        return score_masked > score
-
-class AD(SingleStepMetric):
-
-    def compute_metric_sample(self,score,score_masked):
-        return torch.clamp(score-score_masked,min=0)/score  
+    def compute_metric(self,score,score_masked):
+        return {"iic":(score_masked > score).mean(),"ad":(torch.clamp(score-score_masked,min=0)/score).mean()}
 
 class ADD(SingleStepMetric):
 
     def preprocess_mask(self,masks):
         return 1-masks
 
-    def compute_metric_sample(self,score,score_masked):
-        return (score-score_masked)/score  
+    def compute_metric(self,score,score_masked):
+        return {"add":((score-score_masked)/score).mean()}

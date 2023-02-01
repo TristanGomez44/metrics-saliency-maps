@@ -4,7 +4,7 @@ import torch
 
 from data_transf import select_data_transf
 
-def compute_corr_metric(score_var, all_sal_score_list):
+def compute_correlation(score_var, all_sal_score_list):
     corr_list = []
     for i in range(len(score_var)):
         var_class_score = score_var[i][:,np.newaxis]
@@ -66,8 +66,11 @@ class AUC_Metric():
         data[i:i+1,:,y1:y2,x1:x2] = data_to_replace_with[i:i+1,:,y1:y2,x1:x2]
         return data
 
-    def compute_metric(self,all_score_list,all_sal_score_list):
-        return compute_auc_metric(all_score_list)
+    def compute_calibration_metric(all_score_list, all_sal_score_list):
+        raise NotImplementedError
+
+    def make_result_dic(self,auc_metric,calibration_metric):
+        raise NotImplementedError
 
     def __call__(self,model,data,explanations,class_to_explain_list=None):
 
@@ -112,8 +115,10 @@ class AUC_Metric():
         all_score_list = np.array(all_score_list)
         all_sal_score_list = np.array(all_sal_score_list)
 
-        mean = self.compute_metric(all_score_list,all_sal_score_list)
-        return mean
+        mean_auc_metric = compute_auc_metric(all_score_list)
+        mean_calibration_metric = self.compute_calibration_metric(all_score_list, all_sal_score_list)
+
+        return self.make_result_dic(mean_auc_metric,mean_calibration_metric)
 
 class DAUC(AUC_Metric):
     def __init__(self,data_shape,explanation_shape,data_transf_str="black",bound_max_step=True):
@@ -125,6 +130,13 @@ class DAUC(AUC_Metric):
     def preprocess_data(self,data):
         return data
 
+    def compute_calibration_metric(self, all_score_list, all_sal_score_list):
+        score_var = all_score_list[:,:-1] - all_score_list[:,1:] 
+        return compute_correlation(score_var, all_sal_score_list)
+
+    def make_result_dic(self,auc_metric,calibration_metric):
+        return {"dauc":auc_metric,"dc":calibration_metric}
+        
 class IAUC(AUC_Metric):
     def __init__(self,data_shape,explanation_shape,data_transf_str="blur",bound_max_step=True):
         super().__init__(data_shape,explanation_shape,data_transf_str,bound_max_step)
@@ -135,18 +147,9 @@ class IAUC(AUC_Metric):
     def preprocess_data(self,data):
         return self.data_transf_func(data)
 
-class DC(DAUC):
-    def __init__(self,data_shape,explanation_shape,data_transf_str="black",bound_max_step=True):
-        super().__init__(data_shape,explanation_shape,data_transf_str,bound_max_step)
-    
-    def compute_metric(self, all_score_list, all_sal_score_list):
-        score_var = all_score_list[:,:-1] - all_score_list[:,1:] 
-        return compute_corr_metric(score_var, all_sal_score_list)
-
-class IC(IAUC):
-    def __init__(self,data_shape,explanation_shape,data_transf_str="blur",bound_max_step=True):
-        super().__init__(data_shape,explanation_shape,data_transf_str,bound_max_step)
-    
-    def compute_metric(self, all_score_list, all_sal_score_list):
+    def compute_calibration_metric(self, all_score_list, all_sal_score_list):
         score_var = all_score_list[:,1:] - all_score_list[:,:-1]
-        return compute_corr_metric(score_var, all_sal_score_list)
+        return compute_correlation(score_var, all_sal_score_list)
+
+    def make_result_dic(self,auc_metric,calibration_metric):
+        return {"iauc":auc_metric,"ic":calibration_metric}

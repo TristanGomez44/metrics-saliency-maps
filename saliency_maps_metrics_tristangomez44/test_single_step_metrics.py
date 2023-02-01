@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from single_step_metrics import IIC,AD,ADD
+from single_step_metrics import IIC_AD,ADD
 
 #Test a model producing a score that increases when the image is masked
 def get_iic1():
@@ -9,7 +9,7 @@ def get_iic1():
     expl = torch.zeros_like(test_dic["data"])[:,0:1]
     expl[0,0,0,0] = 1
     test_dic["expl"] = expl
-    test_dic["metrConst"] = IIC
+    test_dic["metrConst"] = IIC_AD
     def test_model_iic1(x):
         res = torch.zeros(1,2)
         res[0,0] = (x==0).float().mean()
@@ -17,6 +17,7 @@ def get_iic1():
     test_dic["model"] = test_model_iic1
     test_dic["class_to_explain"] = torch.zeros(len(test_dic["data"])).long()
     test_dic["target"] = 1
+    test_dic["metric_name"] = "iic"
     return test_dic 
 
 #Test a model producing a score that decreases when the image is masked
@@ -49,7 +50,7 @@ def get_ad1():
     baseline = torch.rand(size=(1,)).item()
     test_dic["baseline"] = baseline
     test_dic["expl"] = expl
-    test_dic["metrConst"] = AD
+    test_dic["metrConst"] = IIC_AD
     def test_ad1(x):
         res = torch.zeros(1,2)
         res[0,0] = baseline+(x==0).float().mean(dim=(1,2,3))
@@ -58,6 +59,7 @@ def get_ad1():
     test_dic["model"] = test_ad1
     test_dic["class_to_explain"] = torch.zeros(len(test_dic["data"])).long()
     test_dic["target"] = 0
+    test_dic["metric_name"] = "ad"
     return test_dic 
 
 #Test a model with a score that decreases of a constant proportion when the explanation is applied
@@ -86,6 +88,7 @@ def get_add1():
         return res 
     test_dic["model"] = test_add1
     test_dic["metrConst"] = ADD
+    test_dic["metric_name"] = "add"
     return test_dic 
 
 #Test a model with a score that decreases of a constant proportion when the explanation is applied

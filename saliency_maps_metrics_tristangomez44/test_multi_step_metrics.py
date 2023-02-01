@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from multi_step_metrics import DAUC,IAUC,DC,IC
+from multi_step_metrics import DAUC,IAUC
 
 #Test a model producing a linearly decreasing score from 1 to 0
 def get_dauc1():
@@ -17,6 +17,7 @@ def get_dauc1():
     test_dic["model"] = test_model_dauc_1
     test_dic["class_to_explain"] = torch.ones(len(test_dic["data"])).long()
     test_dic["target"] = 0.5000
+    test_dic["metric_name"] = "dauc"
     return test_dic 
 
 #Test a model producing a approximately linearly increasing score from 0 to 1
@@ -37,6 +38,7 @@ def get_iauc1():
         return res
     test_dic["model"] = test_model_iauc_1
     test_dic["target"] = 0.5000
+    test_dic["metric_name"] = "iauc"
     return test_dic
 
 #Test a model producing a constant score
@@ -51,6 +53,7 @@ def get_dauc2():
     test_dic["model"]  = lambda x:rand_nb*torch.ones(x.shape[0],2)
     test_dic["class_to_explain"]  = torch.ones(len(test_dic["data"])).long()
     test_dic["target"] = rand_nb
+    test_dic["metric_name"] = "dauc"
     return test_dic
 
 #Test a model producing a constant score
@@ -58,6 +61,7 @@ def get_iauc2():
     test_dic = get_dauc2()
     test_dic = test_dic.copy()
     test_dic["metrConst"] = IAUC
+    test_dic["metric_name"] = "iauc"
     return test_dic
 
 #Test a fully uncalibrated model
@@ -69,20 +73,22 @@ def get_dc1():
     torch.manual_seed(2)
     expl = torch.rand(size=(data_shape[0],1,data_shape[2],data_shape[3]))
     test_dic["expl"] = expl.clone()
-    test_dic["metrConst"] = DC
+    test_dic["metrConst"] = DAUC
     def test_model_corr_metrics_1(x):
         res = torch.rand(size=(data.shape[0],2))
         return res
     test_dic["model"] = test_model_corr_metrics_1  
     test_dic["class_to_explain"] = torch.ones(data_shape[0]).long()
     test_dic["target"] = 0.00
+    test_dic["metric_name"] = "dc"
     return test_dic 
 
 #Test a fully uncalibrated model
 def get_ic1():
     test_dic = get_dc1()    
     test_dic = test_dic.copy()
-    test_dic["metrConst"] = IC
+    test_dic["metrConst"] = IAUC
+    test_dic["metric_name"] = "ic"
     return test_dic
 
 #Generates random scores and a correlated explanation
@@ -117,7 +123,7 @@ def get_dc2():
     data = torch.ones(1,3,4,4)
     scores,expl = generate_random_scores_and_explanation(data.shape,"DC")
 
-    metrConst = DC
+    metrConst = DAUC
 
     def test_model_dc_2(x):
         x = x[:,0:1].view(-1)
@@ -135,16 +141,17 @@ def get_dc2():
 
     test_dic["data"] = data.clone()
     test_dic["expl"] = expl.clone()
-    test_dic["metrConst"] = DC
+    test_dic["metrConst"] = DAUC
     test_dic["model"] = model 
     test_dic["class_to_explain"] = class_to_explain
     test_dic["target"] = 0.9999
+    test_dic["metric_name"] = "dc"
     return test_dic
 
 def get_ic2():
     test_dic = get_dc2()    
     test_dic = test_dic.copy()
-    test_dic["metrConst"] = IC
+    test_dic["metrConst"] = IAUC
     scores_ic,expl = generate_random_scores_and_explanation(test_dic["data"].shape,"IC")
     test_dic["expl"] = expl
     data_ref = test_dic["data"].clone()
@@ -161,6 +168,7 @@ def get_ic2():
         return res
     test_dic["model"] = test_model_ic_2
     test_dic["target"] = 0.9999
+    test_dic["metric_name"] = "ic"
     return test_dic
 
 if __name__ == "__main__":
@@ -182,6 +190,6 @@ if __name__ == "__main__":
         torch.manual_seed(0)
         dic = all_test_dic[test]
         metric = dic["metrConst"](dic["data"].shape,dic["expl"].shape)
-        mean = metric(dic["model"],dic["data"].clone(),dic["expl"].clone(),dic["class_to_explain"])
+        mean = metric(dic["model"],dic["data"].clone(),dic["expl"].clone(),dic["class_to_explain"])[dic["metric_name"]]
         sucess = np.abs(mean - dic["target"]) < 0.01
         print(f"Test: {test}, Result:{mean}, Target:{dic['target']}, Sucess:{sucess}")
