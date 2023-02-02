@@ -53,8 +53,8 @@ class SingleStepMetric():
             score_list.append(score)
             score_masked_list.append(score_masked)
 
-        score_list = torch.tensor(score_list)
-        score_masked_list = torch.tensor(score_masked_list)
+        score_list = np.array(score_list)
+        score_masked_list = np.array(score_masked_list)
 
         return score_list,score_masked_list
 
@@ -68,7 +68,7 @@ class SingleStepMetric():
 class IIC_AD(SingleStepMetric):
 
     def compute_metric(self,score,score_masked):
-        return {"iic":(score_masked > score).float().mean(),"ad":(torch.clamp(score-score_masked,min=0)/score).mean()}
+        return {"iic":(score_masked > score).astype("float").mean(),"ad":(np.maximum(score-score_masked,0)/score).mean()}
 
 class ADD(SingleStepMetric):
 

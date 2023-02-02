@@ -69,14 +69,14 @@ class MultiStepMetric():
         raise NotImplementedError
 
     def compute_scores(self,model,data,explanations,class_to_explain_list=None,masking_data=None):
-        
+
         total_pixel_nb = explanations.shape[2]*explanations.shape[3]
         step_nb = min(14*14,total_pixel_nb) if self.bound_max_step else total_pixel_nb
         pixel_removed_per_step = total_pixel_nb//step_nb
 
         if masking_data is None:
             masking_data = self.get_masking_data(data)
-       
+
         dic = self.choose_data_order(data,masking_data)
         data1,data2 = dic["data1"],dic["data2"]
 
@@ -107,16 +107,16 @@ class MultiStepMetric():
 
                 output = model(data_masked)[0,class_to_explain]
                 score_list.append(output.detach().item())
-                saliency_score_list.append(saliency_scores[-pixel_removed_per_step:].detach().mean())
+                saliency_score_list.append(saliency_scores[-pixel_removed_per_step:].detach().mean().item())
                     
                 iter_nb += 1
                 left_pixel_nb -= pixel_removed_per_step
 
             all_score_list.append(score_list)
             all_sal_score_list.append(saliency_score_list)
-
-        all_score_list = torch.tensor(all_score_list)
-        all_sal_score_list = torch.tensor(all_sal_score_list)
+        
+        all_score_list = np.array(all_score_list)
+        all_sal_score_list = np.array(all_sal_score_list)
 
         return all_score_list,all_sal_score_list
 
