@@ -37,6 +37,7 @@ class MultiStepMetric():
         #in one inference for every few pixels removed, instead of one inference per pixel.
         self.bound_max_step = bound_max_step 
 
+        self.data_replace_method = data_replace_method
         self.data_replace_func = select_data_replace_method(data_replace_method)
 
     def get_masking_data(self,data):

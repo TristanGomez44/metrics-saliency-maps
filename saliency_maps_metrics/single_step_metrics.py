@@ -15,6 +15,7 @@ class SingleStepMetric():
 
     def __init__(self,data_replace_method="black") -> None:
         
+        self.data_replace_method = data_replace_method
         self.data_replace_func = select_data_replace_method(data_replace_method)
 
     def get_masking_data(self,data):
