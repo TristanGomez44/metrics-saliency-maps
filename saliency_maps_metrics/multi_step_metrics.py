@@ -28,7 +28,7 @@ def compute_auc_metric(all_score_list):
 
 class MultiStepMetric():
 
-    def __init__(self,data_replace_method,bound_max_step=True,batch_size=20):
+    def __init__(self,data_replace_method,bound_max_step=True,batch_size=20,max_step_nb=14*14):
 
         #Set this to true to limit the maximum number of inferences computed by the metric
         #The DAUC/IAUC protocol requires one inference per pixel of the explanation map.
@@ -36,6 +36,7 @@ class MultiStepMetric():
         #In the case of a high-resolution map (>14x14), setting this arg to True results 
         #in one inference for every few pixels removed, instead of one inference per pixel.
         self.bound_max_step = bound_max_step 
+        self.max_step_nb = max_step_nb
 
         self.data_replace_method = data_replace_method
         self.data_replace_func = select_data_replace_method(data_replace_method)
@@ -72,7 +73,7 @@ class MultiStepMetric():
     def compute_scores(self,model,data,explanations,class_to_explain_list=None,masking_data=None):
 
         total_pixel_nb = explanations.shape[2]*explanations.shape[3]
-        step_nb = min(14*14,total_pixel_nb) if self.bound_max_step else total_pixel_nb
+        step_nb = min(self.max_step_nb,total_pixel_nb) if self.bound_max_step else total_pixel_nb
         pixel_removed_per_step = total_pixel_nb//step_nb
 
         if masking_data is None:
@@ -137,8 +138,8 @@ class MultiStepMetric():
         return self.make_result_dic(mean_auc_metric,mean_calibration_metric)
 
 class Deletion(MultiStepMetric):
-    def __init__(self,data_replace_method="black",bound_max_step=True,batch_size=20):
-        super().__init__(data_replace_method,bound_max_step,batch_size)
+    def __init__(self,data_replace_method="black",bound_max_step=True,batch_size=20,max_step_nb=14*14):
+        super().__init__(data_replace_method,bound_max_step,batch_size,max_step_nb)
 
     def choose_data_order(self,data,masking_data):
         return {"data1":data,"data2":masking_data}
@@ -152,8 +153,8 @@ class Deletion(MultiStepMetric):
         
     
 class Insertion(MultiStepMetric):
-    def __init__(self,data_replace_method="blur",bound_max_step=True,batch_size=20):
-        super().__init__(data_replace_method,bound_max_step,batch_size)
+    def __init__(self,data_replace_method="blur",bound_max_step=True,batch_size=20,max_step_nb=14*14):
+        super().__init__(data_replace_method,bound_max_step,batch_size,max_step_nb)
 
     def choose_data_order(self,data,masking_data):
         return {"data1":masking_data,"data2":data}
