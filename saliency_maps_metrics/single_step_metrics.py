@@ -42,6 +42,22 @@ class SingleStepMetric():
 
         score_list = []
         score_masked_list = []
+
+        if class_to_explain_list is None:
+            class_to_explain = torch.argmax(model(data),axis=1)
+        else:
+            class_to_explain = class_to_explain_list
+
+        batch_inds = np.arange(len(data))
+
+        score_list = model(data)
+        score_list = score_list[batch_inds,class_to_explain]
+        score_masked_list = model(data_masked)[batch_inds,class_to_explain]
+
+        score_list = score_list.cpu().numpy()
+        score_masked_list = score_masked_list.cpu().numpy()
+
+        '''
         for i in range(len(data)):
             if class_to_explain_list is None:
                 class_to_explain = torch.argmax(model(data[i:i+1]),axis=1)[0]
@@ -52,9 +68,9 @@ class SingleStepMetric():
             score_masked = model(data_masked[i:i+1])[0,class_to_explain].item()          
             score_list.append(score)
             score_masked_list.append(score_masked)
-
         score_list = np.array(score_list)
         score_masked_list = np.array(score_masked_list)
+        '''
 
         return score_list,score_masked_list
 
