@@ -28,7 +28,7 @@ def compute_auc_metric(all_score_list):
 
 class MultiStepMetric():
 
-    def __init__(self,data_replace_method,bound_max_step=True):
+    def __init__(self,data_replace_method,bound_max_step=True,batch_size=20):
 
         #Set this to true to limit the maximum number of inferences computed by the metric
         #The DAUC/IAUC protocol requires one inference per pixel of the explanation map.
@@ -39,6 +39,7 @@ class MultiStepMetric():
 
         self.data_replace_method = data_replace_method
         self.data_replace_func = select_data_replace_method(data_replace_method)
+        self.batch_size = batch_size
 
     def get_masking_data(self,data):
         return self.data_replace_func(data)
@@ -93,29 +94,37 @@ class MultiStepMetric():
             expl = explanations[i:i+1]
             left_pixel_nb = total_pixel_nb
 
-            output = model(data1[i:i+1])[0,class_to_explain]
+            output = model(data1[i:i+1])[0:1,class_to_explain]
 
-            score_list = [output.detach().item()]
+            score_list = [output.detach()]
             saliency_score_list = []            
             iter_nb = 0
 
+            data_masked_list = []
             while left_pixel_nb > 0:
 
                 mask,saliency_scores = self.compute_mask(expl,data1.shape,pixel_removed_per_step*(iter_nb+1))
                 mask = mask.to(data1.device)
                 data_masked = self.apply_mask(data1[i:i+1],data2[i:i+1],mask)
-
-                output = model(data_masked)[0,class_to_explain]
-                score_list.append(output.detach().item())
+                data_masked_list.append(data_masked)
                 saliency_score_list.append(saliency_scores[-pixel_removed_per_step:].detach().mean().item())
-                    
+         
                 iter_nb += 1
                 left_pixel_nb -= pixel_removed_per_step
 
-            all_score_list.append(score_list)
+            data_masked_list = torch.cat(data_masked_list,dim=0)
+            data_masked_chunks = torch.split(data_masked_list,self.batch_size)
+
+            for i,data_masked in enumerate(data_masked_chunks):
+                output = model(data_masked)[:,class_to_explain]
+                score_list.append(output.detach())        
+
+            score_list = torch.cat(score_list,dim=0)
+
+            all_score_list.append(score_list.cpu())
             all_sal_score_list.append(saliency_score_list)
         
-        all_score_list = np.array(all_score_list)
+        all_score_list = torch.stack(all_score_list).numpy()
         all_sal_score_list = np.array(all_sal_score_list)
 
         return all_score_list,all_sal_score_list

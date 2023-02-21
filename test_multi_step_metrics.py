@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from saliency_maps_metrics.multi_step_metrics import Deletion,Insertion
-
+import time
 #Test a model producing a linearly decreasing score from 1 to 0
 def get_dauc1():
     test_dic = {}
@@ -75,7 +75,7 @@ def get_dc1():
     test_dic["expl"] = expl.clone()
     test_dic["metrConst"] = Deletion
     def test_model_corr_metrics_1(x):
-        res = torch.rand(size=(data.shape[0],2))
+        res = torch.rand(size=(x.shape[0],2))
         return res
     test_dic["model"] = test_model_corr_metrics_1  
     test_dic["class_to_explain"] = torch.ones(data_shape[0]).long()
@@ -125,16 +125,20 @@ def get_dc2():
 
     metrConst = Deletion
 
-    def test_model_dc_2(x):
-        x = x[:,0:1].view(-1)
-        inds = torch.argwhere(x==0)
-        res = torch.zeros(1,2).float() 
-        if len(inds) == 0:
-            res[0,0] = scores[0]
-            return res
-        else:
-            res[0,0] = scores[inds[-1,0]+1]
-        return res
+    def test_model_dc_2(all_x):
+        all_res = []
+        for i in range(len(all_x)):
+            x = all_x[i:i+1]
+            x = x[:,0:1].reshape(-1)
+            inds = torch.argwhere(x==0)
+            res = torch.zeros(1,2).float() 
+            if len(inds) == 0:
+                res[0,0] = scores[0]
+            else:
+                res[0,0] = scores[inds[-1,0]+1]
+            all_res.append(res)
+        all_res = torch.cat(all_res,dim=0)
+        return all_res
 
     model = test_model_dc_2  
     class_to_explain = torch.zeros(len(data)).long()            
@@ -155,25 +159,44 @@ def get_ic2():
     scores_ic,expl = generate_random_scores_and_explanation(test_dic["data"].shape,"IC")
     test_dic["expl"] = expl
     data_ref = test_dic["data"].clone()
-    def test_model_ic_2(x):
-        x = x[:,0:1].view(-1)
-        data_flat = data_ref[:,0:1].view(-1)
-        inds = torch.argwhere(x==data_flat)
-        res = torch.zeros(1,2).float() 
-        if len(inds) == 0:
-            res[0,0] = scores_ic[0]
-            return res
-        else:
-            res[0,0] = scores_ic[inds[-1,0]+1]
-        return res
+    def test_model_ic_2(all_x):
+        all_res = []
+        for i in range(len(all_x)):
+            x =all_x[i:i+1]
+            x = x[:,0:1].reshape(-1)
+            data_flat = data_ref[:,0:1].view(-1)
+            inds = torch.argwhere(x==data_flat)
+            res = torch.zeros(1,2).float() 
+            if len(inds) == 0:
+                res[0,0] = scores_ic[0]
+            else:
+                res[0,0] = scores_ic[inds[-1,0]+1]
+            all_res.append(res)
+        all_res = torch.cat(all_res,dim=0)        
+
+        return all_res
     test_dic["model"] = test_model_ic_2
     test_dic["target"] = 0.9999
     test_dic["metric_name"] = "ic"
     return test_dic
 
+def get_dauc_resnet():
+    test_dic = {}
+    test_dic["data"] = torch.ones(1,3,56,56)
+    test_dic["expl"] = test_dic["data"].clone()[:,0:1]
+    test_dic["metrConst"] = Deletion
+
+    import torchvision
+    test_dic["model"] = torchvision.models.resnet18().eval()
+    test_dic["class_to_explain"] = torch.ones(len(test_dic["data"])).long()
+    test_dic["metric_name"] = "dauc"
+    return test_dic 
+
+
 if __name__ == "__main__":
  
     all_test_dic = {}
+
     all_test_dic["DAUC1"] = get_dauc1()
     all_test_dic["IAUC1"] = get_iauc1()
     all_test_dic["DAUC2"] = get_dauc2()
@@ -183,13 +206,23 @@ if __name__ == "__main__":
     all_test_dic["IC1"] = get_ic1()
     all_test_dic["DC2"] = get_dc2()
     all_test_dic["IC2"] = get_ic2()
+
+    all_test_dic["DAUC_RESNET"] = get_dauc_resnet()
  
-    test_to_do = ["DAUC1","IAUC1","DAUC2","IAUC2","DC1","IC1","DC2","IC2"]
-    
+    test_to_do = ["DAUC1","IAUC1","DAUC2","IAUC2","DC1","IC1","DC2","IC2","DAUC_RESNET"]
+
     for test in test_to_do:
         torch.manual_seed(0)
         dic = all_test_dic[test]
         metric = dic["metrConst"]()
+
+        start_time = time.time()
         mean = metric(dic["model"],dic["data"].clone(),dic["expl"].clone(),dic["class_to_explain"])[dic["metric_name"]]
-        sucess = np.abs(mean - dic["target"]) < 0.01
-        print(f"Test: {test}, Result:{mean}, Target:{dic['target']}, Sucess:{sucess}")
+        duration = time.time() - start_time
+        if "target" in dic:
+            target = dic["target"]
+            sucess = np.abs(mean - target) < 0.01
+        else:
+            sucess,target = "undefined","undefined"
+
+        print(f"Test: {test}, Result:{mean}, Target:{target}, Sucess:{sucess}, Duration:{duration}")
