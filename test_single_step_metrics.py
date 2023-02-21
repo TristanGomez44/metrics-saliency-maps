@@ -11,8 +11,8 @@ def get_iic1():
     test_dic["expl"] = expl
     test_dic["metrConst"] = IIC_AD
     def test_model_iic1(x):
-        res = torch.zeros(1,2)
-        res[0,0] = (x==0).float().mean()
+        res = torch.zeros(x.shape[0],2)
+        res[:,0] = (x==0).float().mean()
         return res
     test_dic["model"] = test_model_iic1
     test_dic["class_to_explain"] = torch.zeros(len(test_dic["data"])).long()
@@ -24,8 +24,8 @@ def get_iic1():
 def get_iic2():
     test_dic = get_iic1()
     def test_model_iic2(x):
-        res = torch.zeros(1,2)
-        res[0,0] = (x==1).float().mean()
+        res = torch.zeros(x.shape[0],2)
+        res[:,0] = (x==1).float().mean()
         return res
     test_dic["model"] = test_model_iic2
     test_dic["target"] = 0
@@ -38,7 +38,7 @@ def get_iic3():
         res = torch.rand(size=(x.shape[0],2))
         return res
     test_dic["model"] = test_model_iic3
-    test_dic["target"] = 0.5
+    test_dic["target"] = 0.6
     return test_dic  
 
 #Test a model with a score that increases when the explanation is applied
@@ -52,8 +52,8 @@ def get_ad1():
     test_dic["expl"] = expl
     test_dic["metrConst"] = IIC_AD
     def test_ad1(x):
-        res = torch.zeros(1,2)
-        res[0,0] = baseline+(x==0).float().mean(dim=(1,2,3))
+        res = torch.zeros(x.shape[0],2)
+        res[:,0] = baseline+(x==0).float().mean(dim=(1,2,3))
         res = torch.softmax(res,dim=-1) 
         return res
     test_dic["model"] = test_ad1
@@ -70,11 +70,11 @@ def get_ad2():
     drop_prop = torch.rand(size=(1,)).item()
     test_dic["drop_prop"] = drop_prop
     def test_ad2(x):
-        res = torch.zeros(1,2)
+        res = torch.zeros(x.shape[0],2)
         if (x==0).sum() == 0:
-            res[0,0] = baseline
+            res[:,0] = baseline
         else:
-            res[0,0] = baseline*drop_prop
+            res[:,0] = baseline*drop_prop
         return res
     test_dic["model"] = test_ad2
     test_dic["target"] = 1-drop_prop
@@ -84,7 +84,7 @@ def get_ad2():
 def get_add1():
     test_dic = get_ad1()
     def test_add1(x):
-        res = torch.ones(1,2)
+        res = torch.ones(x.shape[0],2)
         return res 
     test_dic["model"] = test_add1
     test_dic["metrConst"] = ADD
