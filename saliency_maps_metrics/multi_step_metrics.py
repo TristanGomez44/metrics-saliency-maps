@@ -137,8 +137,8 @@ class MultiStepMetric():
         return self.make_result_dic(mean_auc_metric,mean_calibration_metric)
 
 class Deletion(MultiStepMetric):
-    def __init__(self,data_replace_method="black",bound_max_step=True):
-        super().__init__(data_replace_method,bound_max_step)
+    def __init__(self,data_replace_method="black",bound_max_step=True,batch_size=20):
+        super().__init__(data_replace_method,bound_max_step,batch_size)
 
     def choose_data_order(self,data,masking_data):
         return {"data1":data,"data2":masking_data}
@@ -152,8 +152,8 @@ class Deletion(MultiStepMetric):
         
     
 class Insertion(MultiStepMetric):
-    def __init__(self,data_replace_method="blur",bound_max_step=True):
-        super().__init__(data_replace_method,bound_max_step)
+    def __init__(self,data_replace_method="blur",bound_max_step=True,batch_size=20):
+        super().__init__(data_replace_method,bound_max_step,batch_size)
 
     def choose_data_order(self,data,masking_data):
         return {"data1":masking_data,"data2":data}
