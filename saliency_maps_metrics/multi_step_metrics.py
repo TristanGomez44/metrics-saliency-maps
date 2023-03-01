@@ -13,7 +13,7 @@ def compute_correlation(score_var, all_sal_score_list):
         points = np.concatenate((var_class_score,sal_score),axis=-1)
         corr_list.append(np.corrcoef(points,rowvar=False)[0,1])
 
-    corr_mean = np.array(corr_list).mean()
+    corr_mean = np.array(corr_list)
     return corr_mean
 
 def compute_auc_metric(all_score_list):
@@ -23,7 +23,7 @@ def compute_auc_metric(all_score_list):
         auc = np.trapz(scores,np.arange(len(scores))/(len(scores)-1))
         auc_list.append(auc)
 
-    auc_mean = np.array(auc_list).mean()
+    auc_mean = np.array(auc_list)
     return auc_mean
 
 class MultiStepMetric():
@@ -132,9 +132,10 @@ class MultiStepMetric():
 
     def __call__(self,model,data,explanations,class_to_explain_list=None,masking_data=None):
         all_score_list,all_sal_score_list = self.compute_scores(model,data,explanations,class_to_explain_list,masking_data)
-        mean_auc_metric = compute_auc_metric(all_score_list)
-        mean_calibration_metric = self.compute_calibration_metric(all_score_list, all_sal_score_list)
-
+        auc_metric = compute_auc_metric(all_score_list)
+        calibration_metric = self.compute_calibration_metric(all_score_list, all_sal_score_list)
+        mean_auc_metric = auc_metric.mean()
+        mean_calibration_metric = calibration_metric.mean()
         return self.make_result_dic(mean_auc_metric,mean_calibration_metric)
 
 class Deletion(MultiStepMetric):

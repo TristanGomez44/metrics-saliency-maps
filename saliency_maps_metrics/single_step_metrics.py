@@ -57,39 +57,41 @@ class SingleStepMetric():
         score_list = score_list.cpu().numpy()
         score_masked_list = score_masked_list.cpu().numpy()
 
-        '''
-        for i in range(len(data)):
-            if class_to_explain_list is None:
-                class_to_explain = torch.argmax(model(data[i:i+1]),axis=1)[0]
-            else:
-                class_to_explain = class_to_explain_list[i]
-        
-            score = model(data[i:i+1])[0,class_to_explain].item()  
-            score_masked = model(data_masked[i:i+1])[0,class_to_explain].item()          
-            score_list.append(score)
-            score_masked_list.append(score_masked)
-        score_list = np.array(score_list)
-        score_masked_list = np.array(score_masked_list)
-        '''
-
         return score_list,score_masked_list
 
     def __call__(self,model,data,explanations,class_to_explain_list,data_to_replace_with=None):
-        score_list,score_masked_list = self.compute_scores(model,data,explanations,class_to_explain_list,data_to_replace_with)
-        return self.compute_metric(score_list,score_masked_list)
+        raise NotImplementedError
+
 
     def compute_metric(self,score,score_masked):
         raise NotImplementedError
 
 class IIC_AD(SingleStepMetric):
 
-    def compute_metric(self,score,score_masked):
-        return {"iic":(score_masked > score).astype("float").mean(),"ad":(np.maximum(score-score_masked,0)/score).mean()}
+    def __call__(self, model, data, explanations, class_to_explain_list, data_to_replace_with=None):
+        score_list,score_masked_list = self.compute_scores(model,data,explanations,class_to_explain_list,data_to_replace_with)
+        result_dic = self.compute_metric(score_list, score_masked_list)
+        for metric_name in result_dic:
+            result_dic[metric_name] = result_dic[metric_name].mean()
+        return result_dic
+
+    def compute_metric(self, score, score_masked):
+        iic = (score_masked > score).astype("float")
+        ad = (np.maximum(score-score_masked,0)/score)
+        return {"iic":iic,"ad":ad}
 
 class ADD(SingleStepMetric):
 
     def preprocess_mask(self,masks):
         return 1-masks
 
-    def compute_metric(self,score,score_masked):
-        return {"add":((score-score_masked)/score).mean()}
+    def __call__(self, model, data, explanations, class_to_explain_list, data_to_replace_with=None):
+        score_list,score_masked_list = self.compute_scores(model,data,explanations,class_to_explain_list,data_to_replace_with)
+        result_dic = self.compute_metric(score_list, score_masked_list)
+        for metric_name in result_dic:
+            result_dic[metric_name] = result_dic[metric_name].mean()
+        return result_dic
+
+    def compute_metric(self, score, score_masked):
+        add = ((score-score_masked)/score)
+        return {"add":add}
