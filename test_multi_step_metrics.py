@@ -182,7 +182,7 @@ def get_ic2():
 
 def get_dauc_resnet():
     test_dic = {}
-    test_dic["data"] = torch.ones(1,3,56,56)
+    test_dic["data"] = torch.ones(10,3,56,56)
     test_dic["expl"] = test_dic["data"].clone()[:,0:1]
     test_dic["metrConst"] = Deletion
 
@@ -226,3 +226,10 @@ if __name__ == "__main__":
             sucess,target = "undefined","undefined"
 
         print(f"Test: {test}, Result:{mean}, Target:{target}, Sucess:{sucess}, Duration:{duration}")
+
+    dic = all_test_dic["DAUC_RESNET"]
+    metric = dic["metrConst"]()
+
+    all_score_list,all_sal_score_list = metric.compute_scores(dic["model"],dic["data"].clone(),dic["expl"].clone(),save_all_class_scores=True)
+    print(all_score_list.shape,all_sal_score_list.shape)
+

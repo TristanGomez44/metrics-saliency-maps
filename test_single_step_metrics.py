@@ -100,6 +100,19 @@ def get_add2():
     test_dic["metric_name"] = "add"
     return test_dic 
 
+def get_iic_resnet():
+    test_dic = {}
+    test_dic["data"] = torch.ones(10,3,56,56)
+    test_dic["expl"] = test_dic["data"].clone()[:,0:1]
+    test_dic["metrConst"] = IIC_AD
+
+    import torchvision
+    test_dic["model"] = torchvision.models.resnet18().eval()
+    test_dic["class_to_explain"] = torch.ones(len(test_dic["data"])).long()
+    test_dic["metric_name"] = "dauc"
+    return test_dic 
+
+
 if __name__ == "__main__":
  
     all_test_dic = {}
@@ -119,3 +132,12 @@ if __name__ == "__main__":
         mean = metric(dic["model"],dic["data"].clone(),dic["expl"].clone(),dic["class_to_explain"])[dic["metric_name"]]
         sucess = np.abs(mean - dic["target"]) < 0.01
         print(f"Test: {test}, Result:{mean}, Target:{dic['target']}, Sucess:{sucess}")
+
+
+    dic = get_iic_resnet()
+    metric = dic["metrConst"]()
+
+    all_score_list,all_score_masked_list = metric.compute_scores(dic["model"],dic["data"].clone(),dic["expl"].clone(),save_all_class_scores=True)
+    print(all_score_list.shape,all_score_masked_list.shape)
+
+    
