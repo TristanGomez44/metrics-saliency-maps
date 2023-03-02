@@ -34,28 +34,35 @@ class SingleStepMetric():
         data_masked = data*mask + data_to_replace_with*(1-mask)
         return data_masked
 
-    def compute_scores(self,model,data,explanations,class_to_explain_list=None,data_to_replace_with=None):
-        masks = self.compute_mask(explanations,data.shape).to(data.device)
-        if data_to_replace_with is None:
-            data_to_replace_with = self.get_masking_data(data)
-        data_masked = self.apply_mask(data,data_to_replace_with,masks)
+    def compute_scores(self,model,data,explanations,class_to_explain_list=None,data_to_replace_with=None,save_all_class_scores=False):
+        
+        with torch.no_grad():
+            
+            masks = self.compute_mask(explanations,data.shape).to(data.device)
+            if data_to_replace_with is None:
+                data_to_replace_with = self.get_masking_data(data)
+            data_masked = self.apply_mask(data,data_to_replace_with,masks)
 
-        score_list = []
-        score_masked_list = []
+            score_list = []
+            score_masked_list = []
 
-        if class_to_explain_list is None:
-            class_to_explain = torch.argmax(model(data),axis=1)
-        else:
-            class_to_explain = class_to_explain_list
+            if class_to_explain_list is None:
+                class_to_explain = torch.argmax(model(data),axis=1)
+            else:
+                class_to_explain = class_to_explain_list
 
-        batch_inds = np.arange(len(data))
+            batch_inds = np.arange(len(data))
 
-        score_list = model(data)
-        score_list = score_list[batch_inds,class_to_explain]
-        score_masked_list = model(data_masked)[batch_inds,class_to_explain]
+            score_list = model(data)
+            if not save_all_class_scores:
+                score_list = score_list[batch_inds,class_to_explain]
 
-        score_list = score_list.cpu().numpy()
-        score_masked_list = score_masked_list.cpu().numpy()
+            score_masked_list = model(data_masked)
+            if not save_all_class_scores:
+                score_masked_list = score_masked_list[batch_inds,class_to_explain]
+
+            score_list = score_list.cpu().numpy()
+            score_masked_list = score_masked_list.cpu().numpy()
 
         return score_list,score_masked_list
 

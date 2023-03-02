@@ -70,63 +70,69 @@ class MultiStepMetric():
     def make_result_dic(self,auc_metric,calibration_metric):
         raise NotImplementedError
 
-    def compute_scores(self,model,data,explanations,class_to_explain_list=None,masking_data=None):
+    def compute_scores(self,model,data,explanations,class_to_explain_list=None,masking_data=None,save_all_class_scores=False):
 
-        total_pixel_nb = explanations.shape[2]*explanations.shape[3]
-        step_nb = min(self.max_step_nb,total_pixel_nb) if self.bound_max_step else total_pixel_nb
-        pixel_removed_per_step = total_pixel_nb//step_nb
+        with torch.no_grad():
 
-        if masking_data is None:
-            masking_data = self.get_masking_data(data)
+            total_pixel_nb = explanations.shape[2]*explanations.shape[3]
+            step_nb = min(self.max_step_nb,total_pixel_nb) if self.bound_max_step else total_pixel_nb
+            pixel_removed_per_step = total_pixel_nb//step_nb
 
-        dic = self.choose_data_order(data,masking_data)
-        data1,data2 = dic["data1"],dic["data2"]
+            if masking_data is None:
+                masking_data = self.get_masking_data(data)
 
-        all_score_list = []
-        all_sal_score_list = []
+            dic = self.choose_data_order(data,masking_data)
+            data1,data2 = dic["data1"],dic["data2"]
 
-        for i in range(len(data1)):
+            all_score_list = []
+            all_sal_score_list = []
+
+            for i in range(len(data1)):
+                
+                if class_to_explain_list is None:
+                    class_to_explain = torch.argmax(model(data1[i:i+1]),axis=1)[0]
+                else:
+                    class_to_explain = class_to_explain_list[i]
             
-            if class_to_explain_list is None:
-                class_to_explain = torch.argmax(model(data1[i:i+1]),axis=1)[0]
-            else:
-                class_to_explain = class_to_explain_list[i]
-        
-            expl = explanations[i:i+1]
-            left_pixel_nb = total_pixel_nb
+                expl = explanations[i:i+1]
+                left_pixel_nb = total_pixel_nb
 
-            output = model(data1[i:i+1])[0:1,class_to_explain]
+                output = model(data1[i:i+1])
+                if not save_all_class_scores:
+                    output = output[0:1,class_to_explain]
 
-            score_list = [output.detach()]
-            saliency_score_list = []            
-            iter_nb = 0
+                score_list = [output]
+                saliency_score_list = []            
+                iter_nb = 0
 
-            data_masked_list = []
-            while left_pixel_nb > 0:
+                data_masked_list = []
+                while left_pixel_nb > 0:
 
-                mask,saliency_scores = self.compute_mask(expl,data1.shape,pixel_removed_per_step*(iter_nb+1))
-                mask = mask.to(data1.device)
-                data_masked = self.apply_mask(data1[i:i+1],data2[i:i+1],mask)
-                data_masked_list.append(data_masked)
-                saliency_score_list.append(saliency_scores[-pixel_removed_per_step:].detach().mean().item())
-         
-                iter_nb += 1
-                left_pixel_nb -= pixel_removed_per_step
+                    mask,saliency_scores = self.compute_mask(expl,data1.shape,pixel_removed_per_step*(iter_nb+1))
+                    mask = mask.to(data1.device)
+                    data_masked = self.apply_mask(data1[i:i+1],data2[i:i+1],mask)
+                    data_masked_list.append(data_masked)
+                    saliency_score_list.append(saliency_scores[-pixel_removed_per_step:].mean().item())
+            
+                    iter_nb += 1
+                    left_pixel_nb -= pixel_removed_per_step
 
-            data_masked_list = torch.cat(data_masked_list,dim=0)
-            data_masked_chunks = torch.split(data_masked_list,self.batch_size)
+                data_masked_list = torch.cat(data_masked_list,dim=0)
+                data_masked_chunks = torch.split(data_masked_list,self.batch_size)
 
-            for i,data_masked in enumerate(data_masked_chunks):
-                output = model(data_masked)[:,class_to_explain]
-                score_list.append(output.detach())        
+                for i,data_masked in enumerate(data_masked_chunks):
+                    output = model(data_masked)
+                    if not save_all_class_scores:
+                        output = output[:,class_to_explain]
+                    score_list.append(output)        
 
-            score_list = torch.cat(score_list,dim=0)
+                score_list = torch.cat(score_list,dim=0)
 
-            all_score_list.append(score_list.cpu())
-            all_sal_score_list.append(saliency_score_list)
-        
-        all_score_list = torch.stack(all_score_list).numpy()
-        all_sal_score_list = np.array(all_sal_score_list)
+                all_score_list.append(score_list.cpu())
+                all_sal_score_list.append(saliency_score_list)
+            
+            all_score_list = torch.stack(all_score_list).numpy()
+            all_sal_score_list = np.array(all_sal_score_list)
 
         return all_score_list,all_sal_score_list
 
