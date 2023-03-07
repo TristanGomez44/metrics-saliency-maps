@@ -43,7 +43,10 @@ def test_data_aug():
         data_i = data[i:i+1]
         expl_i = expl[i:i+1]
 
-        metric = metric_dic[metric_name](func_list[i])
+        if metric_name == "Insertion":
+            metric = metric_dic[metric_name](func_list[i],cumulative=False)
+        else:
+            metric = metric_dic[metric_name](func_list[i])
 
         if i >= len(metric_list)//2:
             masking_data_i = torch.zeros_like(data_i)
@@ -58,7 +61,11 @@ def test_data_aug():
 
             k = expl.shape[2]*expl.shape[3]//4
        
-            mask,_ = metric.compute_mask(expl_i,data.shape,k)
+            total_pixel_nb = expl.shape[2]*expl.shape[3]
+            step_nb = min(metric.max_step_nb,total_pixel_nb) if metric.bound_max_step else total_pixel_nb
+            pixel_removed_per_step = total_pixel_nb//step_nb
+
+            mask,_ = metric.compute_mask(expl_i,data.shape,k,pixel_removed_per_step)
        
             data_masked = metric.apply_mask(data1_i,data2_i,mask)
 

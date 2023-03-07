@@ -1,3 +1,4 @@
+from re import A
 import sys
 import numpy as np
 import torch
@@ -28,7 +29,7 @@ def compute_auc_metric(all_score_list):
 
 class MultiStepMetric():
 
-    def __init__(self,data_replace_method,bound_max_step=True,batch_size=20,max_step_nb=14*14):
+    def __init__(self,data_replace_method,bound_max_step=True,batch_size=20,max_step_nb=14*14,cumulative=True):
 
         #Set this to true to limit the maximum number of inferences computed by the metric
         #The DAUC/IAUC protocol requires one inference per pixel of the explanation map.
@@ -37,6 +38,8 @@ class MultiStepMetric():
         #in one inference for every few pixels removed, instead of one inference per pixel.
         self.bound_max_step = bound_max_step 
         self.max_step_nb = max_step_nb
+
+        self.cumulative = cumulative
 
         self.data_replace_method = data_replace_method
         self.data_replace_func = select_data_replace_method(data_replace_method)
@@ -48,9 +51,15 @@ class MultiStepMetric():
     def choose_data_order(self,data,masking_data):
         raise NotImplementedError
 
-    def compute_mask(self,explanation,data_shape,k):
+    def compute_mask(self,explanation,data_shape,k,pixel_removed_per_step):
         mask_flat = torch.ones(explanation.shape[2]*explanation.shape[3]).to(explanation.device)
         saliency_scores,inds = torch.topk(explanation.view(-1),k,0,sorted=True)
+
+        saliency_scores = saliency_scores[-pixel_removed_per_step:]
+
+        if not self.cumulative:
+            inds = inds[-pixel_removed_per_step:]
+
         mask_flat[inds] = 0
         mask = mask_flat.reshape(1,1,explanation.shape[2],explanation.shape[3])
         mask = torch.nn.functional.interpolate(mask,data_shape[2:],mode="nearest")
@@ -108,11 +117,11 @@ class MultiStepMetric():
                 data_masked_list = []
                 while left_pixel_nb > 0:
 
-                    mask,saliency_scores = self.compute_mask(expl,data1.shape,pixel_removed_per_step*(iter_nb+1))
+                    mask,saliency_scores = self.compute_mask(expl,data1.shape,pixel_removed_per_step*(iter_nb+1),pixel_removed_per_step)
                     mask = mask.to(data1.device)
                     data_masked = self.apply_mask(data1[i:i+1],data2[i:i+1],mask)
                     data_masked_list.append(data_masked)
-                    saliency_score_list.append(saliency_scores[-pixel_removed_per_step:].mean().item())
+                    saliency_score_list.append(saliency_scores.mean().item())
             
                     iter_nb += 1
                     left_pixel_nb -= pixel_removed_per_step
@@ -145,8 +154,8 @@ class MultiStepMetric():
         return self.make_result_dic(mean_auc_metric,mean_calibration_metric)
 
 class Deletion(MultiStepMetric):
-    def __init__(self,data_replace_method="black",bound_max_step=True,batch_size=20,max_step_nb=14*14):
-        super().__init__(data_replace_method,bound_max_step,batch_size,max_step_nb)
+    def __init__(self,data_replace_method="black",bound_max_step=True,batch_size=20,max_step_nb=14*14,cumulative=True):
+        super().__init__(data_replace_method,bound_max_step,batch_size,max_step_nb,cumulative)
 
     def choose_data_order(self,data,masking_data):
         return {"data1":data,"data2":masking_data}
@@ -160,8 +169,8 @@ class Deletion(MultiStepMetric):
         
     
 class Insertion(MultiStepMetric):
-    def __init__(self,data_replace_method="blur",bound_max_step=True,batch_size=20,max_step_nb=14*14):
-        super().__init__(data_replace_method,bound_max_step,batch_size,max_step_nb)
+    def __init__(self,data_replace_method="blur",bound_max_step=True,batch_size=20,max_step_nb=14*14,cumulative=True):
+        super().__init__(data_replace_method,bound_max_step,batch_size,max_step_nb,cumulative)
 
     def choose_data_order(self,data,masking_data):
         return {"data1":masking_data,"data2":data}
