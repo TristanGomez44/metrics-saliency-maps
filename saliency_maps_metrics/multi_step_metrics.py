@@ -135,7 +135,7 @@ class MultiStepMetric():
 
                 data_masked_chunks = torch.split(data_masked_list,self.batch_size)
 
-                for i,data_masked in enumerate(data_masked_chunks):
+                for data_masked in data_masked_chunks:
                     output = model(data_masked)
                     if not save_all_class_scores:
                         output = output[:,class_to_explain]
