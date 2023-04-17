@@ -34,7 +34,7 @@ class SingleStepMetric():
         data_masked = data*mask + data_to_replace_with*(1-mask)
         return data_masked
 
-    def compute_scores(self,model,data,explanations,class_to_explain_list=None,data_to_replace_with=None,save_all_class_scores=False):
+    def compute_scores(self,model,data,explanations,class_to_explain_list=None,data_to_replace_with=None,save_all_class_scores=False,return_data=False):
         
         with torch.no_grad():
             
@@ -64,7 +64,10 @@ class SingleStepMetric():
             score_list = score_list.cpu().numpy()
             score_masked_list = score_masked_list.cpu().numpy()
 
-        return score_list,score_masked_list
+        if return_data:
+            return score_list,score_masked_list,data_masked
+        else:
+            return score_list,score_masked_list
 
     def __call__(self,model,data,explanations,class_to_explain_list,data_to_replace_with=None):
         raise NotImplementedError

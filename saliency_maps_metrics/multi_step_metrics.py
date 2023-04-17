@@ -79,7 +79,7 @@ class MultiStepMetric():
     def make_result_dic(self,auc_metric,calibration_metric):
         raise NotImplementedError
 
-    def compute_scores(self,model,data,explanations,class_to_explain_list=None,masking_data=None,save_all_class_scores=False):
+    def compute_scores(self,model,data,explanations,class_to_explain_list=None,masking_data=None,save_all_class_scores=False,return_data=False):
 
         with torch.no_grad():
 
@@ -95,6 +95,11 @@ class MultiStepMetric():
 
             all_score_list = []
             all_sal_score_list = []
+
+            if return_data:
+                data_0 = []
+            else:
+                data_0 = None
 
             for i in range(len(data1)):
                 
@@ -127,6 +132,7 @@ class MultiStepMetric():
                     left_pixel_nb -= pixel_removed_per_step
 
                 data_masked_list = torch.cat(data_masked_list,dim=0)
+
                 data_masked_chunks = torch.split(data_masked_list,self.batch_size)
 
                 for i,data_masked in enumerate(data_masked_chunks):
@@ -134,6 +140,9 @@ class MultiStepMetric():
                     if not save_all_class_scores:
                         output = output[:,class_to_explain]
                     score_list.append(output)        
+
+                    if return_data and i==0:
+                        data_0.append(data_masked)
 
                 score_list = torch.cat(score_list,dim=0)
 
@@ -143,7 +152,11 @@ class MultiStepMetric():
             all_score_list = torch.stack(all_score_list).numpy()
             all_sal_score_list = np.array(all_sal_score_list)
 
-        return all_score_list,all_sal_score_list
+        if return_data:
+            data_0 = torch.cat(data_0,dim=0)
+            return all_score_list,all_sal_score_list,data_0
+        else:
+            return all_score_list,all_sal_score_list
 
     def __call__(self,model,data,explanations,class_to_explain_list=None,masking_data=None):
         all_score_list,all_sal_score_list = self.compute_scores(model,data,explanations,class_to_explain_list,masking_data)
@@ -166,8 +179,7 @@ class Deletion(MultiStepMetric):
 
     def make_result_dic(self,auc_metric,calibration_metric):
         return {"dauc":auc_metric,"dc":calibration_metric}
-        
-    
+         
 class Insertion(MultiStepMetric):
     def __init__(self,data_replace_method="blur",bound_max_step=True,batch_size=20,max_step_nb=14*14,cumulative=True):
         super().__init__(data_replace_method,bound_max_step,batch_size,max_step_nb,cumulative)
