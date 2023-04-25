@@ -73,7 +73,7 @@ class MultiStepMetric():
         data[i:i+1,:,y1:y2,x1:x2] = masking_data[i:i+1,:,y1:y2,x1:x2]
         return data
 
-    def compute_calibration_metric(all_score_list, all_sal_score_list):
+    def compute_calibration_metric(self,all_score_list, all_sal_score_list):
         raise NotImplementedError
 
     def make_result_dic(self,auc_metric,calibration_metric):
@@ -97,9 +97,9 @@ class MultiStepMetric():
             all_sal_score_list = []
 
             if return_data:
-                data_0 = []
+                all_data = []
             else:
-                data_0 = None
+                all_data = None
 
             for i in range(len(data1)):
                 
@@ -141,8 +141,8 @@ class MultiStepMetric():
                         output = output[:,class_to_explain]
                     score_list.append(output)        
 
-                    if return_data and i==0:
-                        data_0.append(data_masked)
+                    if return_data and i %10==0:
+                        all_data.append(data_masked)
 
                 score_list = torch.cat(score_list,dim=0)
 
@@ -153,8 +153,8 @@ class MultiStepMetric():
             all_sal_score_list = np.array(all_sal_score_list)
 
         if return_data:
-            data_0 = torch.cat(data_0,dim=0)
-            return all_score_list,all_sal_score_list,data_0
+            all_data = torch.cat(all_data,dim=0)
+            return all_score_list,all_sal_score_list,all_data
         else:
             return all_score_list,all_sal_score_list
 
