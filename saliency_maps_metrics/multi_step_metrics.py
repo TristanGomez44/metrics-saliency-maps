@@ -142,7 +142,7 @@ class MultiStepMetric():
                     score_list.append(output)        
 
                     if return_data and i %10==0:
-                        all_data.append(data_masked)
+                        all_data.append(data_masked.cpu())
 
                 score_list = torch.cat(score_list,dim=0)
 
