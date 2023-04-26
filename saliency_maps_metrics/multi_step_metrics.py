@@ -111,7 +111,7 @@ class MultiStepMetric():
                 expl = explanations[i:i+1]
                 left_pixel_nb = total_pixel_nb
 
-                output = model(data1[i:i+1])
+                output = model(data[i:i+1])
                 if not save_all_class_scores:
                     output = output[0:1,class_to_explain]
 
