@@ -117,7 +117,7 @@ class MultiStepMetric():
                 left_pixel_nb = total_pixel_nb
 
                 #Inference on initial image
-                output = self.inference(model,data1[i:i+1],save_all_class_scores=False)
+                output = self.inference(model,data1[i:i+1],save_all_class_scores=True)
 
                 if class_to_explain_list is None:
                     class_to_explain = torch.argmax(output,axis=1)[0]
