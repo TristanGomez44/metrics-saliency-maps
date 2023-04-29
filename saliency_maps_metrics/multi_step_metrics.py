@@ -17,7 +17,11 @@ def compute_correlation(score_var, all_sal_score_list):
     corr_mean = np.array(corr_list)
     return corr_mean
 
-def compute_auc_metric(all_score_list):
+def compute_auc_metric(all_score_list,cumulative=True):
+
+    if not cumulative:
+        all_score_list = all_score_list[:,1:]
+
     auc_list = []
     for i in range(len(all_score_list)):
         scores = all_score_list[i]
@@ -79,6 +83,12 @@ class MultiStepMetric():
     def make_result_dic(self,auc_metric,calibration_metric):
         raise NotImplementedError
 
+    def inference(self,model,data,save_all_class_scores,class_to_explain=None):
+        output = model(data)
+        if not save_all_class_scores:
+            output = output[:,class_to_explain]
+        return output
+
     def compute_scores(self,model,data,explanations,class_to_explain_list=None,masking_data=None,save_all_class_scores=False,return_data=False):
 
         with torch.no_grad():
@@ -103,22 +113,25 @@ class MultiStepMetric():
 
             for i in range(len(data1)):
                 
-                if class_to_explain_list is None:
-                    class_to_explain = torch.argmax(model(data1[i:i+1]),axis=1)[0]
-                else:
-                    class_to_explain = class_to_explain_list[i]
-            
                 expl = explanations[i:i+1]
                 left_pixel_nb = total_pixel_nb
 
-                output = model(data[i:i+1])
+                #Inference on initial image
+                output = self.inference(model,data1[i:i+1],save_all_class_scores=False)
+
+                if class_to_explain_list is None:
+                    class_to_explain = torch.argmax(output,axis=1)[0]
+                else:
+                    class_to_explain = class_to_explain_list[i]
+            
                 if not save_all_class_scores:
-                    output = output[0:1,class_to_explain]
+                    output = output[:,class_to_explain]
 
                 score_list = [output]
                 saliency_score_list = []            
                 iter_nb = 0
 
+                #Computing perturbed images
                 data_masked_list = []
                 while left_pixel_nb > 0:
 
@@ -132,13 +145,11 @@ class MultiStepMetric():
                     left_pixel_nb -= pixel_removed_per_step
 
                 data_masked_list = torch.cat(data_masked_list,dim=0)
-
                 data_masked_chunks = torch.split(data_masked_list,self.batch_size)
 
+                #Inference on perturbed images
                 for data_masked in data_masked_chunks:
-                    output = model(data_masked)
-                    if not save_all_class_scores:
-                        output = output[:,class_to_explain]
+                    output = self.inference(model,data_masked,save_all_class_scores,class_to_explain)
                     score_list.append(output)        
 
                     if return_data and i %10==0:
@@ -160,7 +171,7 @@ class MultiStepMetric():
 
     def __call__(self,model,data,explanations,class_to_explain_list=None,masking_data=None):
         all_score_list,all_sal_score_list = self.compute_scores(model,data,explanations,class_to_explain_list,masking_data)
-        auc_metric = compute_auc_metric(all_score_list)
+        auc_metric = compute_auc_metric(all_score_list,self.cumulative)
         calibration_metric = self.compute_calibration_metric(all_score_list, all_sal_score_list)
         mean_auc_metric = auc_metric.mean()
         mean_calibration_metric = calibration_metric.mean()
@@ -174,7 +185,10 @@ class Deletion(MultiStepMetric):
         return {"data1":data,"data2":masking_data}
 
     def compute_calibration_metric(self, all_score_list, all_sal_score_list):
-        score_var = all_score_list[:,:-1] - all_score_list[:,1:] 
+        if self.cumulative:
+            score_var = all_score_list[:,:-1] - all_score_list[:,1:] 
+        else:
+            score_var = all_score_list[:,0:1] - all_score_list[:,1:] 
         return compute_correlation(score_var, all_sal_score_list)
 
     def make_result_dic(self,auc_metric,calibration_metric):
@@ -188,7 +202,10 @@ class Insertion(MultiStepMetric):
         return {"data1":masking_data,"data2":data}
 
     def compute_calibration_metric(self, all_score_list, all_sal_score_list):
-        score_var = all_score_list[:,1:] - all_score_list[:,:-1]
+        if self.cumulative:
+            score_var = all_score_list[:,1:] - all_score_list[:,:-1]
+        else:
+            score_var = all_score_list[:,1:] - all_score_list[:,0:1]
         return compute_correlation(score_var, all_sal_score_list)
 
     def make_result_dic(self,auc_metric,calibration_metric):
